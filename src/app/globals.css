@@ -1,0 +1,83 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-bg: #121212;
+  --color-brand-accent: #800000;
+  --color-brand-text: #E5E5E5;
+  --font-sans: var(--font-inter);
+  --font-serif: var(--font-playfair);
+}
+
+:root {
+  --background: #121212;
+  --foreground: #E5E5E5;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+/* Post Grid Hover */
+.post-grid-item:hover .post-grid-overlay {
+  opacity: 1 !important;
+}
+.post-grid-item:hover .post-grid-cover {
+  transform: scale(1.1);
+}
+
+/* Animation delay utilities */
+.delay-300 {
+  animation-delay: 300ms;
+}
+
+/* TipTap / ProseMirror Content Fixes */
+.ProseMirror {
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  white-space: break-spaces;
+  -webkit-font-variant-ligatures: none;
+  font-variant-ligatures: none;
+  font-feature-settings: "liga" 0;
+  line-height: 1.6;
+}
+
+/* Emoji Polish — Prevent stretching and clipping */
+.prose, .ProseMirror {
+  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+}
+
+.prose h1, .prose h2, .prose h3, .prose h4, .font-serif {
+  font-family: var(--font-playfair), serif;
+}
+
+/* Specific fix for emojis in text blocks */
+.prose p, .ProseMirror p {
+  line-height: 1.6;
+}
+
+.ProseMirror ul {
+  list-style-type: disc !important;
+  padding-left: 1.5rem !important;
+  margin: 1rem 0 !important;
+}
+
+.ProseMirror ol {
+  list-style-type: decimal !important;
+  padding-left: 1.5rem !important;
+  margin: 1rem 0 !important;
+}
+
+.ProseMirror li {
+  margin: 0.25rem 0 !important;
+}
+
+.ProseMirror sub {
+  vertical-align: sub;
+  font-size: 0.75em;
+}
+
+.ProseMirror sup {
+  vertical-align: super;
+  font-size: 0.75em;
+}

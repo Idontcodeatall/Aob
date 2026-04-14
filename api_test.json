@@ -1,0 +1,313 @@
+{
+  "kind": "books#volumes",
+  "totalItems": 1000000,
+  "items": [
+    {
+      "kind": "books#volume",
+      "id": "jWkfzQEACAAJ",
+      "etag": "S4IITdyUids",
+      "selfLink": "https://www.googleapis.com/books/v1/volumes/jWkfzQEACAAJ",
+      "volumeInfo": {
+        "title": "The Song of Songs. A New Metrical Translation Arranged as a Drama, with Introduction and Notes",
+        "publishedDate": "1914",
+        "industryIdentifiers": [
+          {
+            "type": "OTHER",
+            "identifier": "OCLC:315985079"
+          }
+        ],
+        "readingModes": {
+          "text": false,
+          "image": false
+        },
+        "printType": "BOOK",
+        "maturityRating": "NOT_MATURE",
+        "allowAnonLogging": false,
+        "contentVersion": "preview-1.0.0",
+        "panelizationSummary": {
+          "containsEpubBubbles": false,
+          "containsImageBubbles": false
+        },
+        "language": "en",
+        "previewLink": "http://books.google.co.in/books?id=jWkfzQEACAAJ&dq=intitle:song+of&hl=&cd=1&source=gbs_api",
+        "infoLink": "http://books.google.co.in/books?id=jWkfzQEACAAJ&dq=intitle:song+of&hl=&source=gbs_api",
+        "canonicalVolumeLink": "https://books.google.com/books/about/The_Song_of_Songs_A_New_Metrical_Transla.html?hl=&id=jWkfzQEACAAJ"
+      },
+      "saleInfo": {
+        "country": "IN",
+        "saleability": "NOT_FOR_SALE",
+        "isEbook": false
+      },
+      "accessInfo": {
+        "country": "IN",
+        "viewability": "NO_PAGES",
+        "embeddable": false,
+        "publicDomain": false,
+        "textToSpeechPermission": "ALLOWED",
+        "epub": {
+          "isAvailable": false
+        },
+        "pdf": {
+          "isAvailable": false
+        },
+        "webReaderLink": "http://play.google.com/books/reader?id=jWkfzQEACAAJ&hl=&source=gbs_api",
+        "accessViewStatus": "NONE",
+        "quoteSharingAllowed": false
+      }
+    },
+    {
+      "kind": "books#volume",
+      "id": "mGoDzQEACAAJ",
+      "etag": "NU2fBkWIM0Y",
+      "selfLink": "https://www.googleapis.com/books/v1/volumes/mGoDzQEACAAJ",
+      "volumeInfo": {
+        "title": "The Song of Songs. A Drama of Faithful Love. With Notes and Comments by M. King",
+        "publishedDate": "1910",
+        "industryIdentifiers": [
+          {
+            "type": "OTHER",
+            "identifier": "OCLC:315985058"
+          }
+        ],
+        "readingModes": {
+          "text": false,
+          "image": false
+        },
+        "printType": "BOOK",
+        "maturityRating": "NOT_MATURE",
+        "allowAnonLogging": false,
+        "contentVersion": "preview-1.0.0",
+        "panelizationSummary": {
+          "containsEpubBubbles": false,
+          "containsImageBubbles": false
+        },
+        "language": "en",
+        "previewLink": "http://books.google.co.in/books?id=mGoDzQEACAAJ&dq=intitle:song+of&hl=&cd=2&source=gbs_api",
+        "infoLink": "http://books.google.co.in/books?id=mGoDzQEACAAJ&dq=intitle:song+of&hl=&source=gbs_api",
+        "canonicalVolumeLink": "https://books.google.com/books/about/The_Song_of_Songs_A_Drama_of_Faithful_Lo.html?hl=&id=mGoDzQEACAAJ"
+      },
+      "saleInfo": {
+        "country": "IN",
+        "saleability": "NOT_FOR_SALE",
+        "isEbook": false
+      },
+      "accessInfo": {
+        "country": "IN",
+        "viewability": "NO_PAGES",
+        "embeddable": false,
+        "publicDomain": false,
+        "textToSpeechPermission": "ALLOWED",
+        "epub": {
+          "isAvailable": false
+        },
+        "pdf": {
+          "isAvailable": false
+        },
+        "webReaderLink": "http://play.google.com/books/reader?id=mGoDzQEACAAJ&hl=&source=gbs_api",
+        "accessViewStatus": "NONE",
+        "quoteSharingAllowed": false
+      }
+    },
+    {
+      "kind": "books#volume",
+      "id": "WlqtAwAAQBAJ",
+      "etag": "Mh8KK1LYQNo",
+      "selfLink": "https://www.googleapis.com/books/v1/volumes/WlqtAwAAQBAJ",
+      "volumeInfo": {
+        "title": "The Song of Fourteen Songs",
+        "authors": [
+          "M. D. Goulder"
+        ],
+        "publisher": "A&C Black",
+        "publishedDate": "1986-01-01",
+        "description": "A persuasive account, in brief compass, of the dramatic flow of the Song of Songs. Many sensitive observations on the imagery of the songs are presented in the form of a running commentary. The author offers his own original verse translation of the fourteen poems.",
+        "industryIdentifiers": [
+          {
+            "type": "ISBN_13",
+            "identifier": "9780905774879"
+          },
+          {
+            "type": "ISBN_10",
+            "identifier": "0905774876"
+          }
+        ],
+        "readingModes": {
+          "text": false,
+          "image": true
+        },
+        "pageCount": 105,
+        "printType": "BOOK",
+        "categories": [
+          "Religion"
+        ],
+        "maturityRating": "NOT_MATURE",
+        "allowAnonLogging": false,
+        "contentVersion": "0.128.2.0.preview.1",
+        "panelizationSummary": {
+          "containsEpubBubbles": false,
+          "containsImageBubbles": false
+        },
+        "imageLinks": {
+          "smallThumbnail": "http://books.google.com/books/content?id=WlqtAwAAQBAJ&printsec=frontcover&img=1&zoom=5&edge=curl&source=gbs_api",
+          "thumbnail": "http://books.google.com/books/content?id=WlqtAwAAQBAJ&printsec=frontcover&img=1&zoom=1&edge=curl&source=gbs_api"
+        },
+        "language": "en",
+        "previewLink": "http://books.google.co.in/books?id=WlqtAwAAQBAJ&printsec=frontcover&dq=intitle:song+of&hl=&cd=3&source=gbs_api",
+        "infoLink": "http://books.google.co.in/books?id=WlqtAwAAQBAJ&dq=intitle:song+of&hl=&source=gbs_api",
+        "canonicalVolumeLink": "https://books.google.com/books/about/The_Song_of_Fourteen_Songs.html?hl=&id=WlqtAwAAQBAJ"
+      },
+      "saleInfo": {
+        "country": "IN",
+        "saleability": "NOT_FOR_SALE",
+        "isEbook": false
+      },
+      "accessInfo": {
+        "country": "IN",
+        "viewability": "PARTIAL",
+        "embeddable": true,
+        "publicDomain": false,
+        "textToSpeechPermission": "ALLOWED",
+        "epub": {
+          "isAvailable": false
+        },
+        "pdf": {
+          "isAvailable": true,
+          "acsTokenLink": "http://books.google.co.in/books/download/The_Song_of_Fourteen_Songs-sample-pdf.acsm?id=WlqtAwAAQBAJ&format=pdf&output=acs4_fulfillment_token&dl_type=sample&source=gbs_api"
+        },
+        "webReaderLink": "http://play.google.com/books/reader?id=WlqtAwAAQBAJ&hl=&source=gbs_api",
+        "accessViewStatus": "SAMPLE",
+        "quoteSharingAllowed": false
+      },
+      "searchInfo": {
+        "textSnippet": "A persuasive account, in brief compass, of the dramatic flow of the Song of Songs."
+      }
+    },
+    {
+      "kind": "books#volume",
+      "id": "XWlHswEACAAJ",
+      "etag": "kudo6YSypn0",
+      "selfLink": "https://www.googleapis.com/books/v1/volumes/XWlHswEACAAJ",
+      "volumeInfo": {
+        "title": "The Song of songs edited as a dramatic poem",
+        "authors": [
+          "Salomo (Israel, König)"
+        ],
+        "publishedDate": "1913",
+        "industryIdentifiers": [
+          {
+            "type": "OTHER",
+            "identifier": "OCLC:253168467"
+          }
+        ],
+        "readingModes": {
+          "text": false,
+          "image": false
+        },
+        "pageCount": 158,
+        "printType": "BOOK",
+        "maturityRating": "NOT_MATURE",
+        "allowAnonLogging": false,
+        "contentVersion": "preview-1.0.0",
+        "panelizationSummary": {
+          "containsEpubBubbles": false,
+          "containsImageBubbles": false
+        },
+        "language": "en",
+        "previewLink": "http://books.google.co.in/books?id=XWlHswEACAAJ&dq=intitle:song+of&hl=&cd=4&source=gbs_api",
+        "infoLink": "http://books.google.co.in/books?id=XWlHswEACAAJ&dq=intitle:song+of&hl=&source=gbs_api",
+        "canonicalVolumeLink": "https://books.google.com/books/about/The_Song_of_songs_edited_as_a_dramatic_p.html?hl=&id=XWlHswEACAAJ"
+      },
+      "saleInfo": {
+        "country": "IN",
+        "saleability": "NOT_FOR_SALE",
+        "isEbook": false
+      },
+      "accessInfo": {
+        "country": "IN",
+        "viewability": "NO_PAGES",
+        "embeddable": false,
+        "publicDomain": false,
+        "textToSpeechPermission": "ALLOWED",
+        "epub": {
+          "isAvailable": false
+        },
+        "pdf": {
+          "isAvailable": false
+        },
+        "webReaderLink": "http://play.google.com/books/reader?id=XWlHswEACAAJ&hl=&source=gbs_api",
+        "accessViewStatus": "NONE",
+        "quoteSharingAllowed": false
+      }
+    },
+    {
+      "kind": "books#volume",
+      "id": "x17V0QEACAAJ",
+      "etag": "GiVPorbg/M4",
+      "selfLink": "https://www.googleapis.com/books/v1/volumes/x17V0QEACAAJ",
+      "volumeInfo": {
+        "title": "Songs of Songs",
+        "authors": [
+          "Tremper Longman III"
+        ],
+        "publisher": "Wm. B. Eerdmans Publishing Company",
+        "publishedDate": "2001-09-24",
+        "description": "Relationships are a wonderful, mysterious, often elusive, sometimes painful part of the human experience. The most intimate of all human relationships, according to the Bible, is that between a husband and a wife. It is no surprise, therefore, that there is a book of the Bible, the Song of Songs, that focuses on this relationship. What is surprising is how little attention is given to the Song of Songs by scholars, by the church, and by readers of the Bible. With this volume Tremper Longman III unpacks for modern people what this ancient love poem says about the male-female relationship -- and, by analogy, about God's love for his people. Longman's superb study begins with a thorough introduction to the Song of Songs and its background. Longman discusses the book's title, authorship, date, literary style, language, structure, cultural milieu, and theological content. He also canvasses the long history of interpretation of the Song of Songs, a history too often characterized by repression of the text. In the commentary itself, Longman structures the Song of Songs according to its twenty-three poetic units and explains its message verse by verse. The exposition is made clearer by Longman's adoption of an anthropological approach to the text and by his frequent comparisons of the Song of Songs with other ancient Near Eastern literature. Learned yet highly accessible, innovative yet fully informed by past scholarship, this commentary shows the beautiful Song of Songs to be a timeless celebration of human love and sexuality.",
+        "industryIdentifiers": [
+          {
+            "type": "ISBN_10",
+            "identifier": "0802825435"
+          },
+          {
+            "type": "ISBN_13",
+            "identifier": "9780802825438"
+          }
+        ],
+        "readingModes": {
+          "text": false,
+          "image": false
+        },
+        "pageCount": 0,
+        "printType": "BOOK",
+        "maturityRating": "NOT_MATURE",
+        "allowAnonLogging": false,
+        "contentVersion": "preview-1.0.0",
+        "panelizationSummary": {
+          "containsEpubBubbles": false,
+          "containsImageBubbles": false
+        },
+        "imageLinks": {
+          "smallThumbnail": "http://books.google.com/books/content?id=x17V0QEACAAJ&printsec=frontcover&img=1&zoom=5&source=gbs_api",
+          "thumbnail": "http://books.google.com/books/content?id=x17V0QEACAAJ&printsec=frontcover&img=1&zoom=1&source=gbs_api"
+        },
+        "language": "en",
+        "previewLink": "http://books.google.co.in/books?id=x17V0QEACAAJ&dq=intitle:song+of&hl=&cd=5&source=gbs_api",
+        "infoLink": "http://books.google.co.in/books?id=x17V0QEACAAJ&dq=intitle:song+of&hl=&source=gbs_api",
+        "canonicalVolumeLink": "https://books.google.com/books/about/Songs_of_Songs.html?hl=&id=x17V0QEACAAJ"
+      },
+      "saleInfo": {
+        "country": "IN",
+        "saleability": "NOT_FOR_SALE",
+        "isEbook": false
+      },
+      "accessInfo": {
+        "country": "IN",
+        "viewability": "NO_PAGES",
+        "embeddable": false,
+        "publicDomain": false,
+        "textToSpeechPermission": "ALLOWED",
+        "epub": {
+          "isAvailable": false
+        },
+        "pdf": {
+          "isAvailable": false
+        },
+        "webReaderLink": "http://play.google.com/books/reader?id=x17V0QEACAAJ&hl=&source=gbs_api",
+        "accessViewStatus": "NONE",
+        "quoteSharingAllowed": false
+      },
+      "searchInfo": {
+        "textSnippet": "With this volume Tremper Longman III unpacks for modern people what this ancient love poem says about the male-female relationship -- and, by analogy, about God&#39;s love for his people."
+      }
+    }
+  ]
+}
