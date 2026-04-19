@@ -411,17 +411,15 @@ export default function BrowsePage() {
 
       {/* FIXED AI LIBRARIAN BOTTOM BAR */}
       <div 
-        className="fixed left-0 right-0 w-full bg-gradient-to-t from-neutral-950 via-neutral-950/95 to-transparent pt-16 px-4 z-[70] transition-all pointer-events-none"
+        className="fixed left-0 right-0 w-full z-[70] transition-all pointer-events-none px-4 md:px-8"
         style={{ 
-          // 4rem (nav) + 1rem (spacing)
-          bottom: isMobile ? "calc(5rem + env(safe-area-inset-bottom))" : "0px",
-          paddingBottom: isMobile ? "1rem" : "2rem" 
+          bottom: isMobile ? "calc(4rem + env(safe-area-inset-bottom))" : "0px",
         }}
       >
-        <div className="max-w-3xl mx-auto w-full shadow-2xl pointer-events-auto">
+        <div className="max-w-3xl mx-auto w-full shadow-[0_-10px_40px_rgba(0,0,0,0.5)] pointer-events-auto bg-neutral-900 border-x border-t border-brand-accent/30 rounded-t-2xl p-4 pb-3 md:pb-6">
            <form 
               onSubmit={handleAiSubmit} 
-              className="relative flex flex-row items-center overflow-hidden bg-neutral-900 border border-brand-accent/30 rounded-2xl p-2 transition-all focus-within:border-brand-accent focus-within:shadow-[0_0_30px_rgba(128,0,0,0.2)]"
+              className="relative flex flex-row items-center overflow-hidden bg-neutral-950 border border-neutral-800 rounded-xl p-2 transition-all focus-within:border-brand-accent focus-within:shadow-[0_0_30px_rgba(128,0,0,0.2)]"
            >
              <div className="pl-3 pr-2 text-brand-accent flex items-center justify-center shrink-0">
                <Bot size={24} />
