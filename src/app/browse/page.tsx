@@ -273,13 +273,13 @@ export default function BrowsePage() {
   return (
     <div className="flex-1 flex flex-col w-full h-screen mx-auto relative overflow-hidden bg-neutral-950">
       
-      {/* FIXED HEADER */}
-      <header className="shrink-0 fixed top-0 right-0 left-0 md:left-64 pt-8 px-4 md:px-8 z-30 bg-neutral-950/90 backdrop-blur-md border-b border-neutral-800/50 pb-4 transition-all">
+      {/* FIXED HEADER (Responsive) */}
+      <header className="shrink-0 relative md:fixed top-0 right-0 left-0 md:left-64 pt-4 md:pt-8 px-4 md:px-8 z-30 bg-neutral-950/90 backdrop-blur-md border-b border-neutral-800/50 pb-3 md:pb-4 transition-all">
         <div className="max-w-5xl mx-auto">
-        <h1 className="font-serif text-3xl font-bold text-brand-text mb-2">Browse with Librarian</h1>
-        <p className="text-neutral-400 mb-6">Search the archives or ask your AI Librarian for a personalized recommendation.</p>
+        <h1 className="font-serif text-xl sm:text-2xl md:text-3xl font-bold text-brand-text mb-0.5 md:mb-2">Browse with Librarian</h1>
+        <p className="text-neutral-400 text-sm md:text-base mb-3 md:mb-6">Search the archives or ask your AI Librarian for a personalized recommendation.</p>
         
-        <form onSubmit={handleSearch} className="relative w-full max-w-2xl mb-8">
+        <form onSubmit={handleSearch} className="relative w-full max-w-2xl mb-2 md:mb-8">
           <input
             type="text"
             value={query}
@@ -307,7 +307,7 @@ export default function BrowsePage() {
       </header>
 
       {/* Scrollable Content Area */}
-      <div className="flex-1 overflow-y-auto w-full pt-64 pb-48 px-4 md:px-8 custom-scrollbar">
+      <div className="flex-1 overflow-y-auto w-full pt-4 md:pt-64 pb-48 px-4 md:px-8 custom-scrollbar">
         <div className="max-w-5xl mx-auto w-full">
           <AnimatePresence mode="wait">
             
@@ -440,8 +440,8 @@ export default function BrowsePage() {
                <span>Ask</span>
              </button>
            </form>
-           <p className="text-center text-[11px] text-neutral-500 mt-3 flex items-center justify-center gap-1.5 font-medium">
-             <Sparkles size={12} className="text-brand-accent/70" /> 
+           <p className="text-center text-[9px] md:text-[11px] text-neutral-500 mt-1.5 md:mt-3 mb-1 min-[300px]:mb-0 flex items-center justify-center gap-1 font-medium">
+             <Sparkles size={10} className="text-brand-accent/70 hidden sm:block" /> 
              Powered by your reading profile analytics
            </p>
         </div>

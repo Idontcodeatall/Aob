@@ -85,6 +85,14 @@ export default function ProfilePage() {
   };
 
   const radarOptions = {
+    layout: {
+      padding: {
+        left: 20,
+        right: 20,
+        top: 20,
+        bottom: 20
+      }
+    },
     scales: {
       r: {
         min: 0, max: 5,
@@ -275,21 +283,33 @@ export default function ProfilePage() {
               {/* Interactive label overlays */}
               {radarLabels.map((label, i) => {
                 const angle = (Math.PI * 2 * i) / radarLabels.length - Math.PI / 2;
-                const radius = 54;
+                const radius = 46; // Shrunk slightly to match the padded web
                 const cx = 50 + radius * Math.cos(angle);
                 const cy = 50 + radius * Math.sin(angle);
+
+                // Text Alignment: Anchor labels inward to prevent edge runoff
+                let transform = "translate(-50%, -50%)"; // default center
+                if (cx > 55) {
+                  transform = "translate(-100%, -50%)"; // Right-aligned, grows inward
+                } else if (cx < 45) {
+                  transform = "translate(0%, -50%)"; // Left-aligned, grows inward
+                } else if (cy < 50) {
+                  transform = "translate(-50%, -100%)"; // Top-aligned
+                } else {
+                  transform = "translate(-50%, 0%)"; // Bottom-aligned
+                }
 
                 return (
                   <div
                     key={label}
-                    className="absolute group"
+                    className="absolute group z-20 inline-block"
                     style={{
                       left: `${cx}%`,
                       top: `${cy}%`,
-                      transform: "translate(-50%, -50%)",
+                      transform,
                     }}
                   >
-                    <span className="text-xs font-semibold text-brand-text cursor-default hover:text-brand-accent transition-colors px-1 py-0.5 rounded">
+                    <span className="text-[9px] sm:text-[11px] md:text-xs font-semibold text-brand-text cursor-default hover:text-brand-accent transition-colors px-1 py-0.5 rounded whitespace-nowrap">
                       {label}
                     </span>
                     <div className="hidden group-hover:block absolute z-50 w-48 bg-neutral-950/95 border border-neutral-700 rounded-xl shadow-2xl p-4 pointer-events-none"
