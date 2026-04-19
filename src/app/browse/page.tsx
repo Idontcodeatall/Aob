@@ -411,33 +411,34 @@ export default function BrowsePage() {
 
       {/* FIXED AI LIBRARIAN BOTTOM BAR */}
       <div 
-        className="fixed left-0 right-0 w-full bg-gradient-to-t from-neutral-950 via-neutral-950/95 to-transparent pt-12 px-4 z-[70] transition-all"
+        className="fixed left-0 right-0 w-full bg-gradient-to-t from-neutral-950 via-neutral-950/95 to-transparent pt-16 px-4 z-[70] transition-all pointer-events-none"
         style={{ 
-          bottom: isMobile ? "calc(4rem + env(safe-area-inset-bottom))" : "0px",
+          // 4rem (nav) + 1rem (spacing)
+          bottom: isMobile ? "calc(5rem + env(safe-area-inset-bottom))" : "0px",
           paddingBottom: isMobile ? "1rem" : "2rem" 
         }}
       >
-        <div className="max-w-3xl mx-auto w-full shadow-2xl">
+        <div className="max-w-3xl mx-auto w-full shadow-2xl pointer-events-auto">
            <form 
               onSubmit={handleAiSubmit} 
-              className="relative flex items-center bg-neutral-900 border border-brand-accent/30 rounded-2xl p-2 transition-all focus-within:border-brand-accent focus-within:shadow-[0_0_30px_rgba(128,0,0,0.2)]"
+              className="relative flex flex-row items-center overflow-hidden bg-neutral-900 border border-brand-accent/30 rounded-2xl p-2 transition-all focus-within:border-brand-accent focus-within:shadow-[0_0_30px_rgba(128,0,0,0.2)]"
            >
-             <div className="pl-4 pr-2 text-brand-accent flex items-center justify-center">
+             <div className="pl-3 pr-2 text-brand-accent flex items-center justify-center shrink-0">
                <Bot size={24} />
              </div>
              <input
                 type="text"
                 value={aiPrompt}
                 onChange={(e) => setAiPrompt(e.target.value)}
-                placeholder="Ask your Personal Librarian... (e.g. 'I need a fast-paced thriller next')"
-                className="flex-1 bg-transparent py-3 px-2 text-brand-text border-none focus:outline-none focus:ring-0 placeholder-neutral-500 font-medium"
+                placeholder="Ask your Personal Librarian..."
+                className="flex-grow min-w-0 bg-transparent py-3 px-2 text-brand-text border-none focus:outline-none focus:ring-0 placeholder-neutral-500 font-medium text-sm md:text-base selection:bg-brand-accent/30"
              />
              <button 
                 type="submit"
                 disabled={!aiPrompt.trim() || aiLoading}
-                className="px-6 py-3 bg-brand-accent hover:bg-brand-accent/90 disabled:bg-neutral-800 disabled:text-neutral-500 text-white font-semibold rounded-xl transition-colors ml-2 flex items-center gap-2"
+                className="shrink-0 w-[90px] h-[44px] flex items-center justify-center gap-2 bg-brand-accent hover:bg-brand-accent/90 disabled:bg-neutral-800 disabled:text-neutral-500 text-white font-semibold rounded-xl transition-colors ml-1"
              >
-               <Sparkles size={18} />
+               <Sparkles size={16} />
                <span>Ask</span>
              </button>
            </form>
