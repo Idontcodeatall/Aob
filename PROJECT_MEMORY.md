@@ -1,7 +1,13 @@
-# Archive of our Books (AoB) — Project Memory
+# Archive of our Books (Ao²B) — Project Memory
 
 ## Project Overview
-Archive of our Books is a premium, book-focused social media platform designed for high-fidelity book tracking and visual reviews.
+Archive of our Books (Ao²B) is a premium, book-focused social media platform designed for high-fidelity book tracking and visual reviews.
+
+---
+
+## 🎨 Branding & Terminology
+- **Global Logo**: $Ao^2B$ (AO3-inspired, left-aligned, serif high-contrast). The superscript 2 represents "of our".
+- **Terminology**: Content published by users is called a "Post" (formerly known as 'Photo Post').
 
 ---
 

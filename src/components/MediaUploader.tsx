@@ -11,6 +11,7 @@ type MediaUploaderProps = {
 
 export function MediaUploader({ onImageSelect, aspectHint }: MediaUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
   const processFile = useCallback(
@@ -55,9 +56,17 @@ export function MediaUploader({ onImageSelect, aspectHint }: MediaUploaderProps)
       transition={{ duration: 0.4 }}
       className="w-full max-w-lg mx-auto"
     >
-      {/* Hidden native input — accepts images + camera on mobile */}
+      {/* Hidden native input — Gallery / Generic fallback */}
       <input
         ref={inputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleFileChange}
+        className="hidden"
+      />
+      {/* Hidden native input — Forced Camera */}
+      <input
+        ref={cameraInputRef}
         type="file"
         accept="image/*"
         capture="environment"
@@ -115,11 +124,18 @@ export function MediaUploader({ onImageSelect, aspectHint }: MediaUploaderProps)
           )}
         </div>
 
-        {/* Camera hint for mobile */}
-        <div className="flex items-center gap-2 text-neutral-600 text-xs mt-2">
-          <Camera size={14} />
-          <span>Camera available on mobile</span>
-        </div>
+        {/* Distinct Camera Option for mobile */}
+        <button 
+          type="button"
+          onClick={(e) => { 
+            e.stopPropagation(); 
+            cameraInputRef.current?.click(); 
+          }}
+          className="flex items-center gap-2 text-neutral-400 hover:text-brand-text bg-neutral-800 hover:bg-neutral-700 px-4 py-2 rounded-lg text-sm transition-colors mt-2 relative z-10"
+        >
+          <Camera size={16} />
+          <span>Take a Photo</span>
+        </button>
 
         {/* Decorative corner accents */}
         <div className="absolute top-3 left-3 w-4 h-4 border-t-2 border-l-2 border-brand-accent/30 rounded-tl-lg" />

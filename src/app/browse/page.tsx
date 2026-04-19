@@ -38,6 +38,16 @@ export default function BrowsePage() {
 
   const [selectedBook, setSelectedBook] = useState<any | null>(null);
 
+  // Dynamic Mobile Bottom Nav Avoidance
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   // Analytics for AI Context
   const finishedBooks = useMemo(() => library.filter((b) => b.status === "Finished"), [library]);
   const reviewsWithRatings = useMemo(() => posts.filter((p) => p.type === "DeepReview" && p.ratings), [posts]);
@@ -400,7 +410,13 @@ export default function BrowsePage() {
       </div>
 
       {/* FIXED AI LIBRARIAN BOTTOM BAR */}
-      <div className="fixed bottom-0 left-0 right-0 w-full bg-gradient-to-t from-neutral-950 via-neutral-950/95 to-transparent pt-12 pb-8 px-4 z-40">
+      <div 
+        className="fixed left-0 right-0 w-full bg-gradient-to-t from-neutral-950 via-neutral-950/95 to-transparent pt-12 px-4 z-[70] transition-all"
+        style={{ 
+          bottom: isMobile ? "calc(4rem + env(safe-area-inset-bottom))" : "0px",
+          paddingBottom: isMobile ? "1rem" : "2rem" 
+        }}
+      >
         <div className="max-w-3xl mx-auto w-full shadow-2xl">
            <form 
               onSubmit={handleAiSubmit} 

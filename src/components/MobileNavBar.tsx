@@ -31,7 +31,7 @@ export function MobileNavBar() {
               onClick={() => setShowCreateMenu(false)}
             >
               <ImageIcon size={16} className="mr-3 text-neutral-500" />
-              New Photo Post
+              New Post
             </Link>
             <Link
               href="/create/story"

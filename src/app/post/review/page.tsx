@@ -48,7 +48,7 @@ type BookSuggestion = {
 function ReviewForm() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { addPost } = useReviews();
+  const { addPost, addToLibrary } = useReviews();
   const categoriesParam = searchParams.get("categories") || "";
   const fromBrowse = !!(searchParams.get("title"));
 
@@ -199,6 +199,16 @@ function ReviewForm() {
       generalRating,
       ratings: { ...ratings }
     });
+    addToLibrary({
+      id: `book-${Date.now()}`,
+      title: title,
+      authors: author.split(",").map((a) => a.trim()),
+      thumbnail: coverUrl || customPhotoPreview || "",
+      status: "Finished",
+      totalPages: 300,
+      pagesRead: 300,
+    });
+
     router.push("/");
   };
 

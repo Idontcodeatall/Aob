@@ -6,6 +6,7 @@ import { BookOpen, Home, Library, Compass, Settings, ChevronLeft, ChevronRight, 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useReviews } from "@/lib/ReviewContext";
+import { Logo } from "@/components/Logo";
 
 const navItems = [
   { icon: Home, label: "Home", href: "/" },
@@ -27,11 +28,10 @@ export function Navigation() {
       className="sticky top-0 h-screen bg-brand-bg border-r border-neutral-800 z-50 hidden md:flex flex-col shrink-0"
     >
       <div className="flex items-center justify-between p-4 h-16 border-b border-neutral-800">
-        {!isCollapsed && (
-          <span className="font-serif text-xl font-bold text-brand-text truncate flex items-center gap-2">
-            <BookOpen className="text-brand-accent" size={24} />
-            AoB
-          </span>
+        {!isCollapsed ? (
+          <Logo collapsed={false} />
+        ) : (
+          <Logo collapsed={true} />
         )}
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
