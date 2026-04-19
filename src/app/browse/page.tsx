@@ -274,12 +274,12 @@ export default function BrowsePage() {
     <div className="flex-1 flex flex-col w-full h-screen mx-auto relative overflow-hidden bg-neutral-950">
       
       {/* FIXED HEADER (Responsive) */}
-      <header className="shrink-0 relative md:fixed top-0 right-0 left-0 md:left-64 pt-4 md:pt-8 px-4 md:px-8 z-30 bg-neutral-950/90 backdrop-blur-md border-b border-neutral-800/50 pb-3 md:pb-4 transition-all">
+      <header className="shrink-0 relative md:fixed top-0 right-0 left-0 md:left-64 pt-2 md:pt-8 px-4 md:px-8 z-30 bg-neutral-950/90 backdrop-blur-md border-b border-neutral-800/50 pb-2 transition-all">
         <div className="max-w-5xl mx-auto">
-        <h1 className="font-serif text-xl sm:text-2xl md:text-3xl font-bold text-brand-text mb-0.5 md:mb-2">Browse with Librarian</h1>
-        <p className="text-neutral-400 text-sm md:text-base mb-3 md:mb-6">Search the archives or ask your AI Librarian for a personalized recommendation.</p>
+        <h1 className="font-serif text-xl sm:text-2xl md:text-3xl font-bold text-brand-text mb-0 md:mb-2">Browse with Librarian</h1>
+        <p className="text-neutral-400 text-sm md:text-base mb-1 md:mb-6 leading-tight">Search the archives or ask your AI Librarian for a personalized recommendation.</p>
         
-        <form onSubmit={handleSearch} className="relative w-full max-w-2xl mb-2 md:mb-8">
+        <form onSubmit={handleSearch} className="relative w-full max-w-2xl mt-2 mb-1 md:mb-8">
           <input
             type="text"
             value={query}
@@ -411,15 +411,17 @@ export default function BrowsePage() {
 
       {/* FIXED AI LIBRARIAN BOTTOM BAR */}
       <div 
-        className="fixed left-0 right-0 w-full z-[70] transition-all pointer-events-none px-4 md:px-8"
+        className="fixed left-0 right-0 w-full z-[70] transition-all pointer-events-none px-4 md:px-8 md:bg-gradient-to-t md:from-neutral-950 md:via-neutral-950/95 md:to-transparent md:pt-16"
         style={{ 
           bottom: isMobile ? "calc(4rem + env(safe-area-inset-bottom))" : "0px",
+          paddingBottom: isMobile ? "0px" : "2rem"
         }}
       >
-        <div className="max-w-3xl mx-auto w-full shadow-[0_-10px_40px_rgba(0,0,0,0.5)] pointer-events-auto bg-neutral-900 border-x border-t border-brand-accent/30 rounded-t-2xl p-4 pb-3 md:pb-6">
+        {/* Mobile: Solid Drawer | Desktop: Transparent Wrapper for the Island Form */}
+        <div className="max-w-4xl mx-auto w-full pointer-events-auto bg-neutral-900 border-x border-t border-brand-accent/30 rounded-t-2xl p-4 pb-3 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] md:bg-transparent md:border-none md:rounded-none md:shadow-none md:p-0">
            <form 
               onSubmit={handleAiSubmit} 
-              className="relative flex flex-row items-center overflow-hidden bg-neutral-950 border border-neutral-800 rounded-xl p-2 transition-all focus-within:border-brand-accent focus-within:shadow-[0_0_30px_rgba(128,0,0,0.2)]"
+              className="relative flex flex-row items-center overflow-hidden bg-neutral-950 md:bg-neutral-900 border border-neutral-800 md:border-brand-accent/30 rounded-xl md:rounded-2xl p-2 transition-all focus-within:border-brand-accent focus-within:shadow-[0_0_30px_rgba(128,0,0,0.2)] md:shadow-2xl"
            >
              <div className="pl-3 pr-2 text-brand-accent flex items-center justify-center shrink-0">
                <Bot size={24} />
@@ -440,10 +442,6 @@ export default function BrowsePage() {
                <span>Ask</span>
              </button>
            </form>
-           <p className="text-center text-[9px] md:text-[11px] text-neutral-500 mt-1.5 md:mt-3 mb-1 min-[300px]:mb-0 flex items-center justify-center gap-1 font-medium">
-             <Sparkles size={10} className="text-brand-accent/70 hidden sm:block" /> 
-             Powered by your reading profile analytics
-           </p>
         </div>
       </div>
 

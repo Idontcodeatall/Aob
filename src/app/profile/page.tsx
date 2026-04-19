@@ -88,7 +88,7 @@ export default function ProfilePage() {
     layout: {
       padding: {
         left: 20,
-        right: 20,
+        right: 40,
         top: 20,
         bottom: 20
       }
@@ -287,16 +287,16 @@ export default function ProfilePage() {
                 const cx = 50 + radius * Math.cos(angle);
                 const cy = 50 + radius * Math.sin(angle);
 
-                // Text Alignment: Anchor labels inward to prevent edge runoff
+                // Text Alignment: Anchor labels OUTWARD away from the chart web
                 let transform = "translate(-50%, -50%)"; // default center
                 if (cx > 55) {
-                  transform = "translate(-100%, -50%)"; // Right-aligned, grows inward
+                  transform = "translate(0%, -50%)"; // Right-side: Anchor left edge, grow rightward
                 } else if (cx < 45) {
-                  transform = "translate(0%, -50%)"; // Left-aligned, grows inward
+                  transform = "translate(-100%, -50%)"; // Left-side: Anchor right edge, grow leftward
                 } else if (cy < 50) {
-                  transform = "translate(-50%, -100%)"; // Top-aligned
+                  transform = "translate(-50%, -100%)"; // Top: Anchor bottom edge, grow upward
                 } else {
-                  transform = "translate(-50%, 0%)"; // Bottom-aligned
+                  transform = "translate(-50%, 0%)"; // Bottom: Anchor top edge, grow downward
                 }
 
                 return (
@@ -309,7 +309,7 @@ export default function ProfilePage() {
                       transform,
                     }}
                   >
-                    <span className="text-[9px] sm:text-[11px] md:text-xs font-semibold text-brand-text cursor-default hover:text-brand-accent transition-colors px-1 py-0.5 rounded whitespace-nowrap">
+                    <span className="text-[10px] md:text-xs font-semibold text-brand-text cursor-default hover:text-brand-accent transition-colors px-1 py-0.5 rounded whitespace-nowrap">
                       {label}
                     </span>
                     <div className="hidden group-hover:block absolute z-50 w-48 bg-neutral-950/95 border border-neutral-700 rounded-xl shadow-2xl p-4 pointer-events-none"
