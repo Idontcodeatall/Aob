@@ -314,8 +314,13 @@ export default function ProfilePage() {
                       transform,
                     }}
                   >
-                    <span className="text-[10px] md:text-xs font-semibold text-brand-text cursor-default hover:text-brand-accent transition-colors px-1 py-0.5 rounded whitespace-nowrap">
-                      {label}
+                    <span className={`text-[10px] md:text-xs font-semibold text-brand-text cursor-default hover:text-brand-accent transition-colors px-1 py-0.5 rounded flex flex-col items-center text-center ${isMobile ? "" : "whitespace-nowrap"}`}>
+                      {isMobile && label.includes("/") ? (
+                        <>
+                          <span>{label.split("/")[0]}/</span>
+                          <span>{label.split("/")[1]}</span>
+                        </>
+                      ) : label}
                     </span>
                     <div className="hidden group-hover:block absolute z-50 w-48 bg-neutral-950/95 border border-neutral-700 rounded-xl shadow-2xl p-4 pointer-events-none"
                       style={{
