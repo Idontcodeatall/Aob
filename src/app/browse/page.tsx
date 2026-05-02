@@ -414,7 +414,7 @@ export default function BrowsePage() {
         className="fixed left-0 md:left-64 right-0 w-auto z-[70] transition-all pointer-events-none px-4 md:px-8 flex justify-center md:bg-gradient-to-t md:from-neutral-950 md:via-neutral-950/95 md:to-transparent md:pt-16"
         style={{ 
           bottom: isMobile ? "calc(4rem + env(safe-area-inset-bottom))" : "0px",
-          paddingBottom: isMobile ? "0.5rem" : "2rem"
+          paddingBottom: isMobile ? "0px" : "2rem"
         }}
       >
         {/* Mobile: Solid Drawer | Desktop: Transparent Wrapper for the Island Form */}
