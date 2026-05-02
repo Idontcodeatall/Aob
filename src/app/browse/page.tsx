@@ -274,12 +274,12 @@ export default function BrowsePage() {
     <div className="flex-1 flex flex-col w-full h-screen mx-auto relative overflow-hidden bg-neutral-950">
       
       {/* FIXED HEADER (Responsive) */}
-      <header className="shrink-0 relative md:fixed top-0 right-0 left-0 md:left-64 pt-2 md:pt-8 px-4 md:px-8 z-30 bg-neutral-950/90 backdrop-blur-md border-b border-neutral-800/50 pb-2 transition-all">
+      <header className="shrink-0 relative md:fixed top-0 right-0 left-0 md:left-64 pt-1.5 md:pt-4 px-4 md:px-8 z-30 bg-neutral-950/90 backdrop-blur-md border-b border-neutral-800/50 pb-2 transition-all">
         <div className="max-w-5xl mx-auto">
-        <h1 className="font-serif text-xl sm:text-2xl md:text-3xl font-bold text-brand-text mb-0 md:mb-2">Browse with Librarian</h1>
-        <p className="text-neutral-400 text-sm md:text-base mb-1 md:mb-6 leading-tight">Search the archives or ask your AI Librarian for a personalized recommendation.</p>
+        <h1 className="font-serif text-xl sm:text-2xl md:text-3xl font-bold text-brand-text mb-0 md:mb-1">Browse with Librarian</h1>
+        <p className="text-neutral-400 text-xs md:text-base mb-1 md:mb-3 leading-tight">Search the archives or ask your AI Librarian for a personalized recommendation.</p>
         
-        <form onSubmit={handleSearch} className="relative w-full max-w-2xl mt-2 mb-1 md:mb-8">
+        <form onSubmit={handleSearch} className="relative w-full max-w-2xl mt-1 mb-1 md:mb-4">
           <input
             type="text"
             value={query}
@@ -288,10 +288,10 @@ export default function BrowsePage() {
               if (e.target.value === "") setView("trending");
             }}
             placeholder="Search for a title, author, or ISBN..."
-            className="w-full bg-neutral-900 border border-neutral-800 rounded-full px-6 py-4 pl-14 pr-12 text-brand-text focus:outline-none focus:border-brand-accent transition-colors shadow-sm text-lg"
+            className="w-full bg-neutral-900 border border-neutral-800 rounded-full px-5 py-2.5 md:py-4 pl-11 md:pl-14 pr-10 md:pr-12 text-brand-text focus:outline-none focus:border-brand-accent transition-colors shadow-sm text-sm md:text-lg"
           />
-          <button type="submit" className="absolute left-5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-brand-text transition-colors">
-            <Search size={22} />
+          <button type="submit" className="absolute left-4 md:left-5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-brand-text transition-colors">
+            <Search size={18} className="md:w-[22px] md:h-[22px]" />
           </button>
           {query && (
             <button
@@ -307,7 +307,7 @@ export default function BrowsePage() {
       </header>
 
       {/* Scrollable Content Area */}
-      <div className="flex-1 overflow-y-auto w-full pt-4 md:pt-64 pb-48 px-4 md:px-8 custom-scrollbar">
+      <div className="flex-1 overflow-y-auto w-full pt-2 md:pt-48 pb-48 px-4 md:px-8 custom-scrollbar">
         <div className="max-w-5xl mx-auto w-full">
           <AnimatePresence mode="wait">
             
@@ -346,7 +346,7 @@ export default function BrowsePage() {
                 {trendingLoading ? (
                   <div className="text-brand-accent animate-pulse font-medium">Loading recommendations...</div>
                 ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+                  <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6">
                     {trendingBooks.map(b => renderBookCard(b))}
                   </div>
                 )}
@@ -368,7 +368,7 @@ export default function BrowsePage() {
                 {searchLoading ? (
                   <div className="text-brand-accent animate-pulse font-medium">Searching the archives...</div>
                 ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+                  <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6">
                     {searchResults.length > 0 ? (
                       searchResults.map(b => renderBookCard(b))
                     ) : (
@@ -411,35 +411,35 @@ export default function BrowsePage() {
 
       {/* FIXED AI LIBRARIAN BOTTOM BAR */}
       <div 
-        className="fixed left-0 right-0 w-full z-[70] transition-all pointer-events-none px-4 md:px-8 md:bg-gradient-to-t md:from-neutral-950 md:via-neutral-950/95 md:to-transparent md:pt-16"
+        className="fixed left-0 md:left-64 right-0 w-auto z-[70] transition-all pointer-events-none px-4 md:px-8 flex justify-center md:bg-gradient-to-t md:from-neutral-950 md:via-neutral-950/95 md:to-transparent md:pt-16"
         style={{ 
           bottom: isMobile ? "calc(4rem + env(safe-area-inset-bottom))" : "0px",
-          paddingBottom: isMobile ? "0px" : "2rem"
+          paddingBottom: isMobile ? "0.5rem" : "2rem"
         }}
       >
         {/* Mobile: Solid Drawer | Desktop: Transparent Wrapper for the Island Form */}
-        <div className="max-w-4xl mx-auto w-full pointer-events-auto bg-neutral-900 border-x border-t border-brand-accent/30 rounded-t-2xl p-4 pb-3 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] md:bg-transparent md:border-none md:rounded-none md:shadow-none md:p-0">
+        <div className="max-w-2xl mx-auto w-full pointer-events-auto bg-neutral-900 border-x border-t border-brand-accent/30 rounded-t-2xl md:rounded-b-2xl p-3 md:p-0 pb-2 md:pb-0 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] md:bg-transparent md:border-none md:shadow-none">
            <form 
               onSubmit={handleAiSubmit} 
-              className="relative flex flex-row items-center overflow-hidden bg-neutral-950 md:bg-neutral-900 border border-neutral-800 md:border-brand-accent/30 rounded-xl md:rounded-2xl p-2 transition-all focus-within:border-brand-accent focus-within:shadow-[0_0_30px_rgba(128,0,0,0.2)] md:shadow-2xl"
+              className="relative flex flex-row items-center overflow-hidden bg-neutral-950 md:bg-neutral-900 border border-neutral-800 md:border-brand-accent/30 rounded-xl md:rounded-2xl p-1.5 md:p-2 transition-all focus-within:border-brand-accent focus-within:shadow-[0_0_30px_rgba(128,0,0,0.2)] md:shadow-2xl"
            >
-             <div className="pl-3 pr-2 text-brand-accent flex items-center justify-center shrink-0">
-               <Bot size={24} />
+             <div className="pl-2 md:pl-3 pr-1 md:pr-2 text-brand-accent flex items-center justify-center shrink-0">
+               <Bot size={20} className="md:w-6 md:h-6" />
              </div>
              <input
                 type="text"
                 value={aiPrompt}
                 onChange={(e) => setAiPrompt(e.target.value)}
                 placeholder="Ask your Personal Librarian..."
-                className="flex-grow min-w-0 bg-transparent py-3 px-2 text-brand-text border-none focus:outline-none focus:ring-0 placeholder-neutral-500 font-medium text-sm md:text-base selection:bg-brand-accent/30"
+                className="flex-grow min-w-0 bg-transparent py-2 md:py-3 px-2 text-brand-text border-none focus:outline-none focus:ring-0 placeholder-neutral-500 font-medium text-xs md:text-base selection:bg-brand-accent/30"
              />
              <button 
                 type="submit"
                 disabled={!aiPrompt.trim() || aiLoading}
-                className="shrink-0 w-[90px] h-[44px] flex items-center justify-center gap-2 bg-brand-accent hover:bg-brand-accent/90 disabled:bg-neutral-800 disabled:text-neutral-500 text-white font-semibold rounded-xl transition-colors ml-1"
+                className="shrink-0 w-[70px] md:w-[90px] h-[36px] md:h-[44px] flex items-center justify-center gap-2 bg-brand-accent hover:bg-brand-accent/90 disabled:bg-neutral-800 disabled:text-neutral-500 text-white font-semibold rounded-lg md:rounded-xl transition-colors ml-1"
              >
-               <Sparkles size={16} />
-               <span>Ask</span>
+               <Sparkles size={14} className="md:w-4 md:h-4" />
+               <span className="text-xs md:text-sm">Ask</span>
              </button>
            </form>
         </div>
