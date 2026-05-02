@@ -320,20 +320,20 @@ export default function BrowsePage() {
                 exit={{ opacity: 0, scale: 0.98 }}
                 transition={{ duration: 0.3 }}
               >
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-2">
-                    <TrendingIcon />
-                    <h2 className="text-lg font-bold uppercase tracking-wider text-brand-text">Trending Now</h2>
+                <div className="flex items-center justify-between mb-3 md:mb-6">
+                  <div className="flex items-center gap-1.5 md:gap-2">
+                    <TrendingIcon className="w-4 h-4 md:w-6 md:h-6" />
+                    <h2 className="text-sm md:text-lg font-bold uppercase tracking-wider text-brand-text">Trending Now</h2>
                   </div>
                 </div>
 
                 {/* Genre Pills */}
-                <div className="flex items-center gap-3 overflow-x-auto pb-6 no-scrollbar -mx-4 px-4 md:mx-0 md:px-0">
+                <div className="flex items-center gap-2 md:gap-3 overflow-x-auto pb-4 md:pb-6 no-scrollbar -mx-4 px-4 md:mx-0 md:px-0">
                   {["All", "Fiction", "Non-Fiction"].map((genre) => (
                     <button
                       key={genre}
                       onClick={() => setSelectedGenre(genre)}
-                      className={`shrink-0 px-6 py-2 rounded-full border text-sm font-semibold transition-all ${
+                      className={`shrink-0 px-4 md:px-6 py-1.5 md:py-2 rounded-full border text-[10px] md:text-sm font-semibold transition-all ${
                         selectedGenre === genre
                           ? "bg-[#800000] border-[#800000] text-white shadow-lg shadow-[#800000]/20"
                           : "border-[#800000] text-[#800000] hover:bg-[#800000]/5"
@@ -497,9 +497,9 @@ export default function BrowsePage() {
   );
 }
 
-function TrendingIcon() {
+function TrendingIcon({ className = "" }: { className?: string }) {
   return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-brand-accent">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`text-brand-accent ${className}`}>
       <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline>
       <polyline points="16 7 22 7 22 13"></polyline>
     </svg>
