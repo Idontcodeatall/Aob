@@ -25,9 +25,14 @@ ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, 
 
 export default function ProfilePage() {
   const [isMounted, setIsMounted] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   const { posts, library, readingChallenge, userProfile, setShowSettings } = useReviews();
@@ -283,7 +288,7 @@ export default function ProfilePage() {
               {/* Interactive label overlays */}
               {radarLabels.map((label, i) => {
                 const angle = (Math.PI * 2 * i) / radarLabels.length - Math.PI / 2;
-                const radius = 46; // Shrunk slightly to match the padded web
+                const radius = isMobile ? 36 : 46; // Shrunk on mobile to prevent label clipping
                 const cx = 50 + radius * Math.cos(angle);
                 const cy = 50 + radius * Math.sin(angle);
 
