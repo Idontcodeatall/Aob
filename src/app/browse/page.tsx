@@ -38,6 +38,13 @@ export default function BrowsePage() {
 
   const [selectedBook, setSelectedBook] = useState<any | null>(null);
 
+  const isBookFinished = useMemo(() => {
+    if (!selectedBook) return false;
+    return library.some(
+      (item) => item.status === "Finished" && (item.id === selectedBook.id || item.title === selectedBook.volumeInfo.title)
+    );
+  }, [selectedBook, library]);
+
   // Dynamic Mobile Bottom Nav Avoidance
   const [isMobile, setIsMobile] = useState(false);
 
@@ -447,45 +454,92 @@ export default function BrowsePage() {
 
       {/* Book Detail Modal */}
       {selectedBook && (
-        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl relative">
+        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setSelectedBook(null)}>
+          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-2xl overflow-y-auto max-h-[90vh] shadow-2xl relative custom-scrollbar" onClick={(e) => e.stopPropagation()}>
             <button 
               onClick={() => setSelectedBook(null)}
-              className="absolute top-4 right-4 p-2 bg-black/20 hover:bg-black/50 rounded-full text-white z-10 transition-colors"
+              className="absolute top-4 right-4 p-2 bg-black/20 hover:bg-black/50 rounded-full text-white z-10 transition-colors cursor-pointer"
             >
               <X size={20} />
             </button>
             
             <div className="flex flex-col sm:flex-row h-full">
-              <div className="w-full sm:w-2/5 aspect-[2/3] bg-neutral-800 relative">
+              <div className="w-full sm:w-2/5 aspect-[2/3] bg-neutral-850 relative flex items-center justify-center">
                 <BookCover 
                   url={selectedBook.volumeInfo.imageLinks?.thumbnail} 
                   alt={selectedBook.volumeInfo.title} 
                 />
               </div>
-              <div className="p-6 sm:p-8 flex-1 flex flex-col">
-                <h2 className="font-serif text-2xl font-bold text-white mb-1">
+              <div className="p-6 sm:p-8 flex-1 flex flex-col min-w-0">
+                <h2 className="font-serif text-2xl font-bold text-white mb-1 leading-snug">
                   {selectedBook.volumeInfo.title}
                 </h2>
-                <p className="text-brand-accent font-medium mb-4">
+                <p className="text-brand-accent font-medium mb-3.5">
                   {selectedBook.volumeInfo.authors?.join(", ") || "Unknown Author"}
                 </p>
-                <div className="text-sm text-neutral-300 line-clamp-6 mb-6 leading-relaxed">
-                  {selectedBook.volumeInfo.description || "No description available for this book."}
+
+                {/* Prominent Minimalist Add to Library Button */}
+                <button
+                  onClick={() => {
+                    if (!isBookFinished) {
+                      const title = selectedBook.volumeInfo.title || "Unknown Title";
+                      const authors = selectedBook.volumeInfo.authors || ["Unknown Author"];
+                      const thumbnail = getHighResCover(selectedBook.volumeInfo.imageLinks?.thumbnail);
+                      const totalPages = selectedBook.volumeInfo.pageCount || 300;
+                      addToLibrary({
+                        id: selectedBook.id,
+                        title,
+                        authors,
+                        thumbnail,
+                        status: "Finished",
+                        totalPages,
+                        pagesRead: totalPages,
+                      });
+                    }
+                  }}
+                  disabled={isBookFinished}
+                  className={`w-full mb-4 py-2.5 px-4 rounded-xl text-xs font-semibold tracking-wide border transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    isBookFinished
+                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400 cursor-default"
+                      : "border-brand-accent bg-transparent text-brand-text hover:bg-brand-accent hover:text-white"
+                  }`}
+                >
+                  {isBookFinished ? (
+                    <>
+                      <span>✓ In Finished Books</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>+ Move to Finished</span>
+                    </>
+                  )}
+                </button>
+                
+                <div className="text-sm text-neutral-300 mb-6 leading-relaxed overflow-y-auto max-h-48 pr-2 custom-scrollbar prose prose-invert prose-sm max-w-none">
+                  {selectedBook.aiBlurb && (
+                    <div className="mb-4 bg-brand-accent/10 border border-brand-accent/20 rounded-md p-3">
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        <Sparkles size={12} className="text-brand-accent" />
+                        <span className="text-xs font-semibold text-brand-text">AI Curation Notes</span>
+                      </div>
+                      <p className="text-xs text-brand-text/80 leading-relaxed italic">"{selectedBook.aiBlurb}"</p>
+                    </div>
+                  )}
+                  <div dangerouslySetInnerHTML={{ __html: selectedBook.volumeInfo.description || "No description available for this book." }} />
                 </div>
                 
                 <div className="mt-auto pt-4 border-t border-neutral-800 flex flex-col gap-3">
                   <button 
                     onClick={handleStartReview}
-                    className="w-full bg-brand-accent hover:bg-brand-accent/90 text-white font-medium py-3 rounded-xl transition-colors shadow-lg"
+                    className="w-full bg-brand-accent hover:bg-brand-accent/90 text-white font-medium py-3 rounded-xl transition-colors shadow-lg cursor-pointer"
                   >
                     Start Deep Review
                   </button>
                   <div className="grid grid-cols-4 gap-2">
-                    <button onClick={() => handleAddToLibrary("TBR")} className="py-2 bg-neutral-800 hover:bg-neutral-700 rounded-lg text-xs font-medium text-brand-text transition-colors">TBR</button>
-                    <button onClick={() => handleAddToLibrary("Reading")} className="py-2 bg-neutral-800 hover:bg-neutral-700 rounded-lg text-xs font-medium text-brand-text transition-colors">Reading</button>
-                    <button onClick={() => handleAddToLibrary("Finished")} className="py-2 bg-neutral-800 hover:bg-neutral-700 rounded-lg text-xs font-medium text-brand-text transition-colors">Finished</button>
-                    <button onClick={() => handleAddToLibrary("DNF")} className="py-2 bg-neutral-800 hover:bg-neutral-700 rounded-lg text-xs font-medium text-red-400 transition-colors">DNF</button>
+                    <button onClick={() => handleAddToLibrary("TBR")} className="py-2 bg-neutral-800 hover:bg-neutral-700 rounded-lg text-xs font-medium text-brand-text transition-colors cursor-pointer">TBR</button>
+                    <button onClick={() => handleAddToLibrary("Reading")} className="py-2 bg-neutral-800 hover:bg-neutral-700 rounded-lg text-xs font-medium text-brand-text transition-colors cursor-pointer">Reading</button>
+                    <button onClick={() => handleAddToLibrary("Finished")} className="py-2 bg-neutral-800 hover:bg-neutral-700 rounded-lg text-xs font-medium text-brand-text transition-colors cursor-pointer">Finished</button>
+                    <button onClick={() => handleAddToLibrary("DNF")} className="py-2 bg-neutral-800 hover:bg-neutral-700 rounded-lg text-xs font-medium text-red-400 transition-colors cursor-pointer">DNF</button>
                   </div>
                 </div>
               </div>

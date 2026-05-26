@@ -325,6 +325,11 @@ export function ReviewProvider({ children }: { children: React.ReactNode }) {
     initials: "LU",
     bio: "Avid reader and aspiring critic. Lover of literary fiction, hard sci-fi, and the occasional philosophy deep-dive. Currently obsessing over Dune. ✨📚",
     personalLink: "goodreads.com/localuser",
+    allTimeFav: {
+      title: "Dune",
+      author: "Frank Herbert",
+      coverUrl: "https://books.google.com/books/publisher/content?id=B1hSG45JCX4C&printsec=frontcover&img=1&zoom=1",
+    },
   });
 
   const updateProfile = (updates: Partial<UserProfile>) => {

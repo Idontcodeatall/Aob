@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { useReviews, LibraryStatus, Post } from "@/lib/ReviewContext";
+import { useRouter } from "next/navigation";
+import { useReviews, LibraryStatus, Post, LibraryItem } from "@/lib/ReviewContext";
 import { getHighResCover } from "@/lib/utils";
 import { BookCover } from "@/components/BookCover";
 import { Radar } from "react-chartjs-2";
@@ -26,6 +27,7 @@ import {
   Heart,
   Coffee,
   Star,
+  X,
 } from "lucide-react";
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, ChartTooltip, ChartLegend);
@@ -160,18 +162,12 @@ function BookCard({
   item,
   onUpdateProgress,
   review,
+  onClick,
 }: {
-  item: {
-    id: string;
-    title: string;
-    authors: string[];
-    thumbnail?: string;
-    status: LibraryStatus;
-    totalPages: number;
-    pagesRead: number;
-  };
+  item: LibraryItem;
   onUpdateProgress: (id: string) => void;
   review?: Post | null;
+  onClick?: () => void;
 }) {
   const progress = Math.min(
     100,
@@ -222,7 +218,8 @@ function BookCard({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{ duration: 0.3 }}
-      className="group flex flex-col"
+      className={`group flex flex-col ${onClick ? "cursor-pointer" : ""}`}
+      onClick={onClick}
     >
       {/* Cover container — 2:3 aspect ratio */}
       <div className="relative w-full aspect-[2/3] rounded-xl overflow-hidden bg-neutral-800/80 shadow-lg group-hover:shadow-2xl group-hover:shadow-brand-accent/10 transition-all duration-500">
@@ -329,10 +326,30 @@ function BookCard({
   );
 }
 
+const modalRadarOptions = {
+  scales: {
+    r: {
+      min: 0,
+      max: 5,
+      ticks: { display: false },
+      grid: { color: "rgba(255, 255, 255, 0.2)" },
+      angleLines: { color: "rgba(255, 255, 255, 0.2)" },
+      pointLabels: {
+        color: "rgba(255, 255, 255, 0.9)",
+        font: { size: 9, weight: "bold" as const },
+      },
+    },
+  },
+  plugins: { legend: { display: false }, tooltip: { enabled: false } },
+  maintainAspectRatio: true,
+};
+
 export default function LibraryPage() {
   const { library, updateLibraryProgress, posts } = useReviews();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<LibraryStatus>("Reading");
   const [progressModal, setProgressModal] = useState<string | null>(null);
+  const [selectedReviewBook, setSelectedReviewBook] = useState<{ item: LibraryItem; review: Post | null } | null>(null);
 
   const tabs: LibraryStatus[] = ["TBR", "Reading", "Finished", "DNF"];
   const displayItems = library.filter((item) => item.status === activeTab);
@@ -467,6 +484,7 @@ export default function LibraryPage() {
                   item={item}
                   onUpdateProgress={(id) => setProgressModal(id)}
                   review={reviewsByTitle.get(item.title) || null}
+                  onClick={activeTab === "Finished" ? () => setSelectedReviewBook({ item, review: reviewsByTitle.get(item.title) || null }) : undefined}
                 />
               ))}
             </AnimatePresence>
@@ -485,6 +503,127 @@ export default function LibraryPage() {
           />
         )}
       </AnimatePresence>
+
+      {/* Review Detail Modal */}
+      {selectedReviewBook && (
+        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setSelectedReviewBook(null)}>
+          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl relative" onClick={(e) => e.stopPropagation()}>
+            <button 
+              onClick={() => setSelectedReviewBook(null)}
+              className="absolute top-4 right-4 p-2 bg-black/20 hover:bg-black/50 rounded-full text-white z-10 transition-colors cursor-pointer"
+            >
+              <X size={20} />
+            </button>
+            
+            <div className="flex flex-col md:flex-row h-full max-h-[90vh]">
+              {/* Cover Column */}
+              <div className="w-full md:w-1/2 bg-neutral-950 relative flex items-center justify-center aspect-[4/5] md:aspect-auto md:min-h-[400px]">
+                <BookCover 
+                  url={selectedReviewBook.review?.coverUrl || selectedReviewBook.item.thumbnail} 
+                  alt={selectedReviewBook.item.title} 
+                  className="h-full"
+                />
+                {selectedReviewBook.review && selectedReviewBook.review.ratings && (
+                  <div className="absolute inset-0 bg-black/45 flex items-center justify-center p-4">
+                    <div className="w-3/4 aspect-square opacity-95">
+                      <Radar 
+                        data={{
+                          labels: selectedReviewBook.review.isFiction
+                            ? ["Pacing", "Characters", "Plot", "Prose", "Vibe"]
+                            : ["Pacing", "Persona", "Insight", "Prose", "Vibe"],
+                          datasets: [{
+                            data: [
+                              selectedReviewBook.review.ratings.pacing,
+                              selectedReviewBook.review.ratings.metricTwo,
+                              selectedReviewBook.review.ratings.metricThree,
+                              selectedReviewBook.review.ratings.prose,
+                              selectedReviewBook.review.ratings.vibe,
+                            ],
+                            backgroundColor: "rgba(128, 0, 0, 0.45)",
+                            borderColor: "rgba(255, 255, 255, 0.85)",
+                            borderWidth: 2,
+                            pointBackgroundColor: "#FFFFFF",
+                            pointBorderColor: "#800000",
+                            pointRadius: 3,
+                          }],
+                        }} 
+                        options={modalRadarOptions} 
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Text/Content Column */}
+              <div className="p-6 md:p-8 flex-1 flex flex-col min-w-0 overflow-y-auto max-h-[50vh] md:max-h-[90vh] custom-scrollbar">
+                {/* Book Details */}
+                <div className="mb-4">
+                  <h2 className="font-serif text-2xl font-bold text-white mb-0.5 leading-snug">
+                    {selectedReviewBook.item.title}
+                  </h2>
+                  <p className="text-brand-accent text-sm font-medium">
+                    by {selectedReviewBook.item.authors.join(", ")}
+                  </p>
+                </div>
+
+                {selectedReviewBook.review ? (
+                  <>
+                    {/* Rating */}
+                    {selectedReviewBook.review.generalRating && (
+                      <div className="flex items-center gap-0.5 mb-4">
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <Star
+                            key={s}
+                            size={14}
+                            fill={s <= selectedReviewBook.review!.generalRating! ? "currentColor" : "none"}
+                            className={s <= selectedReviewBook.review!.generalRating! ? "text-brand-accent" : "text-neutral-700"}
+                          />
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Divider */}
+                    <div className="border-t border-neutral-800 my-2" />
+
+                    {/* Quote (if exists) */}
+                    {selectedReviewBook.review.overlayQuote && (
+                      <div className="border-l-[3px] border-brand-accent pl-3 my-4 italic text-sm text-neutral-300">
+                        "{selectedReviewBook.review.overlayQuote}"
+                      </div>
+                    )}
+
+                    {/* Essay Content */}
+                    <div className="text-sm text-neutral-300 leading-relaxed prose prose-invert prose-sm max-w-none flex-grow">
+                      <div dangerouslySetInnerHTML={{ __html: selectedReviewBook.review.content }} />
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex-grow flex flex-col justify-center items-center text-center p-4">
+                    <PenLine size={32} className="text-neutral-600 mb-3" />
+                    <h3 className="font-serif text-base text-neutral-300 mb-2">No review written yet</h3>
+                    <p className="text-xs text-neutral-500 max-w-[200px] mb-6 leading-relaxed">
+                      Capture your rating profile and write a deep review for this book.
+                    </p>
+                    <button
+                      onClick={() => {
+                        const title = selectedReviewBook.item.title;
+                        const author = selectedReviewBook.item.authors.join(", ");
+                        const coverUrl = selectedReviewBook.item.thumbnail || "";
+                        const params = new URLSearchParams({ title, author, cover: coverUrl });
+                        router.push(`/post/review?${params.toString()}`);
+                        setSelectedReviewBook(null);
+                      }}
+                      className="bg-brand-accent hover:bg-brand-accent/90 text-white text-xs font-semibold py-2.5 px-5 rounded-xl transition-colors cursor-pointer"
+                    >
+                      Write Deep Review
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

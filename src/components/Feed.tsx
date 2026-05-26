@@ -57,12 +57,23 @@ function UnifiedPostCard({ post }: { post: Post }) {
     setTimeout(() => setShowDoubleTap(false), 800);
   };
 
-  // Caption
-  const captionText = post.content;
-  const shouldTruncate = captionText.length > 120 && !expanded;
+  // Truncation logic - SSR safe check of plain text characters
+  const [plainText, setPlainText] = useState(() => {
+    return post.content.replace(/<[^>]*>/g, "");
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const tempDiv = document.createElement("div");
+      tempDiv.innerHTML = post.content;
+      setPlainText(tempDiv.textContent || tempDiv.innerText || "");
+    }
+  }, [post.content]);
+
+  const shouldTruncate = plainText.length > 250 && !expanded;
   const displayCaption = shouldTruncate
-    ? captionText.slice(0, 120).trim()
-    : captionText;
+    ? plainText.slice(0, 250).trim() + "..."
+    : post.content;
 
   // Determine hero image source
   const heroImage = post.imageUrl || post.coverUrl || null;
@@ -322,15 +333,15 @@ function UnifiedPostCard({ post }: { post: Post }) {
         <div className="text-sm text-brand-text leading-relaxed">
           <span className="font-serif font-bold mr-1.5">{post.author}</span>
           <div 
-            className={`inline prose prose-invert prose-sm max-w-none ${!expanded ? "line-clamp-3" : ""}`}
+            className="inline prose prose-invert prose-sm max-w-none"
             dangerouslySetInnerHTML={{ __html: displayCaption }}
           />
           {shouldTruncate && !expanded && (
             <button
               onClick={() => setExpanded(true)}
-              className="text-neutral-500 ml-1 hover:text-neutral-300 transition-colors"
+              className="text-brand-accent hover:text-brand-accent/80 font-medium ml-1 transition-colors cursor-pointer inline"
             >
-              ...more
+              read more
             </button>
           )}
         </div>
