@@ -105,26 +105,31 @@ export default function ProfilePage() {
         }
 
         if (signUpData?.user) {
-          const emailPrefix = email.split("@")[0];
-          const displayName = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
-          
-          const defaultProfile = {
-            id: signUpData.user.id,
-            username: emailPrefix,
-            display_name: displayName,
-            bio: "Avid reader and aspiring critic. ✨📚",
-            personal_link: "",
-          };
-
+          // Step 1: Insert the canonical minimal row immediately so the
+          // onAuthStateChange profile-fetch always finds an existing record.
           const { error: insertError } = await supabase
             .from("profiles")
-            .insert([defaultProfile]);
+            .insert([{ id: signUpData.user.id, username: "", display_name: "" }]);
 
-          if (insertError) {
-            console.error("Error creating default profile record on signup:", insertError);
+          if (insertError && insertError.code !== "23505") {
+            // 23505 = unique_violation — row already exists (e.g. email-confirm retry)
+            console.error("[Signup] Error creating profile row:", insertError);
           }
 
-          alert("Account created successfully!");
+          // Step 2: Upsert the enriched defaults (display name derived from email).
+          const emailPrefix = email.split("@")[0];
+          const displayName = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
+          await supabase
+            .from("profiles")
+            .upsert([{
+              id: signUpData.user.id,
+              username: emailPrefix,
+              display_name: displayName,
+              bio: "Avid reader and aspiring critic. ✨📚",
+              personal_link: "",
+            }], { onConflict: "id" });
+
+          alert("Account created! Check your email to confirm your address.");
         }
       } else {
         const { error: loginError } = await supabase.auth.signInWithPassword({

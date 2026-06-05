@@ -17,6 +17,7 @@ Archive of our Books (Ao²B) is a premium, book-focused social media platform de
 - **Rich Text**: TipTap Editor
 - **Icons**: Lucide React
 - **Charts**: Chart.js (Radar Charts for book aesthetics)
+- **Backend/Auth**: Supabase (PostgreSQL + Auth)
 - **APIs**: 
   - Google Books API (Search & Metadata)
   - NYT Books API (Trending Lists)
@@ -32,16 +33,46 @@ Archive of our Books (Ao²B) is a premium, book-focused social media platform de
 
 ---
 
+## 🔐 Authentication & Backend (Supabase — v5, 2026-06)
+- **Auth Provider**: Supabase Auth (`@supabase/supabase-js` v2.106.2)
+- **API Key Format**: New `sb_publishable_...` key (not legacy JWT anon key)
+- **Client**: `src/utils/supabaseClient.ts` — reads `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` from `.env.local`
+- **Session Management**: `supabase.auth.onAuthStateChange` listener in `ReviewContext.tsx` drives `session` state globally
+- **Profile Table** (`public.profiles`):
+  | Column | Type | Notes |
+  |---|---|---|
+  | `id` | `uuid` | FK → `auth.users.id` |
+  | `username` | `text` | Derived from email prefix on signup |
+  | `display_name` | `text` | Display name shown in UI |
+  | `bio` | `text` | User bio |
+  | `personal_link` | `text` | External link |
+  | `avatar_url` | `text` | URL/dataURL for avatar |
+  | `currently_reading_fav` | `jsonb` | `{ title, author, coverUrl }` |
+  | `all_time_fav` | `jsonb` | `{ title, author, coverUrl }` |
+- **Signup Flow** (`profile/page.tsx` → `handleAuthSubmit`): 
+  1. `supabase.auth.signUp()` 
+  2. Insert minimal `{ id, username: "", display_name: "" }` row immediately
+  3. Upsert enriched defaults (email-derived display name, default bio)
+  4. `onConflict: "id"` prevents duplicate-row errors on email-confirm retries
+- **Login Flow** (`ReviewContext.tsx` → `fetchProfile`):
+  1. Session fires `onAuthStateChange`
+  2. Fetch `profiles` row for `session.user.id`
+  3. `PGRST116` (no row) → upsert defaults silently
+  4. Row found → map all columns to `userProfile` state (replaces all hardcoded mock data)
+- **TypeScript Build Fix** (2026-06-05): Split `useReviews()` destructure in `profile/page.tsx` so `library` is declared as a standalone `const` before any `useMemo` references it — resolves Vercel build error "Block-scoped variable 'library' used before its declaration"
+
+---
+
 ## 🚀 Deployment & Hosting
-- **Status**: Frontend demo is production-ready.
+- **Status**: Auth-integrated build passing. Deployed on Vercel.
 - **Hosting**: Vercel
 - **Demo URL**: [To be added by user]
-- **Note**: This version is a **Frontend-only Demo**. Data is managed via local React context and will reset on page refresh.
+- **Env Vars Required**: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_GOOGLE_BOOKS_API_KEY`, `NEXT_PUBLIC_NYT_API_KEY`
 
 ---
 
 ## 🗺 Future Roadmap (Backend Phase)
-- **Authentication**: User accounts via Supabase or Firebase.
-- **Database**: Persistent storage for posts, reviews, and library state.
+- **Persistent Library & Posts**: Save `LibraryItem[]` and `Post[]` to Supabase tables per user.
 - **Social**: Real-time likes, follows, and global feed.
 - **AI Integration**: Living "Librarian" AI using actual library data for recommendations.
+- **Settings Persistence**: Save `SettingsModal` changes to the `profiles` table.

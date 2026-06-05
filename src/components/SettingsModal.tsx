@@ -180,11 +180,13 @@ export function SettingsModal() {
 
   const [name, setName] = useState(userProfile.displayName);
   const [bio, setBio] = useState(userProfile.bio);
+  const [favGenres, setFavGenres] = useState(userProfile.favGenres?.join(", ") || "");
   const [link, setLink] = useState(userProfile.personalLink);
   const [goalTarget, setGoalTarget] = useState(readingChallenge.target);
   const [avatarPreview, setAvatarPreview] = useState<string | undefined>(userProfile.avatarUrl);
   const [currentlyReading, setCurrentlyReading] = useState(userProfile.currentlyReadingFav);
   const [allTimeFav, setAllTimeFav] = useState(userProfile.allTimeFav);
+  const [isPublic, setIsPublic] = useState(userProfile.isPublic ?? true);
   
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -195,11 +197,13 @@ export function SettingsModal() {
     if (showSettings) {
       setName(userProfile.displayName);
       setBio(userProfile.bio);
+      setFavGenres(userProfile.favGenres?.join(", ") || "");
       setLink(userProfile.personalLink);
       setGoalTarget(readingChallenge.target);
       setAvatarPreview(userProfile.avatarUrl);
       setCurrentlyReading(userProfile.currentlyReadingFav);
       setAllTimeFav(userProfile.allTimeFav);
+      setIsPublic(userProfile.isPublic ?? true);
       setErrorMessage("");
     }
   }, [showSettings, userProfile, readingChallenge.target]);
@@ -218,6 +222,7 @@ export function SettingsModal() {
   const handleSave = async () => {
     setSaving(true);
     setErrorMessage("");
+    const formattedGenres = favGenres.split(',').map(g => g.trim()).filter(Boolean);
     try {
       if (session?.user) {
         // Sync profile changes to Supabase profiles table
@@ -226,10 +231,13 @@ export function SettingsModal() {
           .update({
             display_name: name,
             bio,
+            fav_genres: formattedGenres.length > 0 ? formattedGenres : null,
             personal_link: link,
             avatar_url: avatarPreview,
-            currently_reading_fav: currentlyReading,
-            all_time_fav: allTimeFav,
+            curr_reading_info: currentlyReading ?? null,
+            all_time_fav_book: allTimeFav ?? null,
+            yearly_chall_goal: goalTarget,
+            is_public: isPublic,
           })
           .eq("id", session.user.id);
         
@@ -245,10 +253,12 @@ export function SettingsModal() {
       updateProfile({
         displayName: name,
         bio,
+        favGenres: formattedGenres.length > 0 ? formattedGenres : undefined,
         personalLink: link,
         avatarUrl: avatarPreview,
         currentlyReadingFav: currentlyReading,
         allTimeFav,
+        isPublic,
       });
       readingChallenge.setTarget(goalTarget);
       setShowSettings(false);
@@ -359,6 +369,23 @@ export function SettingsModal() {
               </div>
             </div>
 
+            {/* Favorite Genres */}
+            <div>
+              <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-2">
+                Favorite Genres
+              </label>
+              <input
+                type="text"
+                value={favGenres}
+                onChange={(e) => setFavGenres(e.target.value)}
+                placeholder="e.g., Fantasy, Sci-Fi, Historical Fiction"
+                className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-accent transition-colors placeholder:text-neutral-600"
+              />
+              <p className="text-[10px] text-neutral-500 mt-1.5 ml-1">
+                Separate with commas (e.g., Fantasy, Sci-Fi, Historical Fiction)
+              </p>
+            </div>
+
             {/* Personal Link */}
             <div>
               <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-2">
@@ -413,6 +440,34 @@ export function SettingsModal() {
                 />
                 <span className="text-sm text-neutral-500">books this year</span>
               </div>
+            </div>
+
+            {/* Divider */}
+            <div className="border-t border-neutral-800 pt-2" />
+
+            {/* Public Profile Toggle */}
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="block text-sm font-semibold text-brand-text mb-1">
+                  Public Profile
+                </label>
+                <p className="text-xs text-neutral-500 max-w-[260px] sm:max-w-none">
+                  Allow other users to view your profile, finished books, and reviews.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsPublic(!isPublic)}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                  isPublic ? "bg-brand-accent" : "bg-neutral-700"
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    isPublic ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
             </div>
 
             {errorMessage && (

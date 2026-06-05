@@ -45,10 +45,12 @@ export type UserProfile = {
   displayName: string;
   initials: string;
   bio: string;
+  favGenres?: string[];
   avatarUrl?: string;
   personalLink: string;
   currentlyReadingFav?: { title: string; author: string; coverUrl: string };
   allTimeFav?: { title: string; author: string; coverUrl: string };
+  isPublic?: boolean;
 };
 
 export type LibraryStatus = "TBR" | "Reading" | "Finished" | "DNF";
@@ -368,62 +370,76 @@ export function ReviewProvider({ children }: { children: React.ReactNode }) {
             .eq("id", session.user.id)
             .single();
 
-          if (error || !data) {
-            const emailPrefix = session.user.email?.split("@")[0] || "User";
+          // PGRST116 = "no rows returned" — row doesn't exist yet, create it.
+          if (error && error.code !== "PGRST116") {
+            console.error("[Profile] DB error fetching profile:", error);
+            return;
+          }
+
+          if (!data) {
+            // No profile row exists — create a minimal one and set defaults.
+            const emailPrefix = session.user.email?.split("@")[0] || "user";
             const displayName = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
-            
-            const defaultProfile = {
+
+            await supabase.from("profiles").upsert([{
               id: session.user.id,
               username: emailPrefix,
               display_name: displayName,
               bio: "Avid reader and aspiring critic. ✨📚",
+              fav_genres: ["Literary Fiction", "Sci-Fi", "Philosophy"],
               personal_link: "",
-            };
-
-            await supabase.from("profiles").insert([defaultProfile]);
+              is_public: true,
+            }], { onConflict: "id" });
 
             setUserProfile({
               displayName,
               initials: displayName.trim().split(/\s+/).map((p) => p[0]).join("").toUpperCase().slice(0, 2),
               bio: "Avid reader and aspiring critic. ✨📚",
+              favGenres: ["Literary Fiction", "Sci-Fi", "Philosophy"],
               personalLink: "",
-              allTimeFav: {
-                title: "Dune",
-                author: "Frank Herbert",
-                coverUrl: "https://books.google.com/books/publisher/content?id=B1hSG45JCX4C&printsec=frontcover&img=1&zoom=1",
-              },
+              isPublic: true,
             });
           } else {
+            // Row found — map every DB column to the UserProfile shape.
+            const displayName = data.display_name || session.user.email?.split("@")[0] || "User";
+            const initials = displayName
+              .trim().split(/\s+/).map((p: string) => p[0]).join("").toUpperCase().slice(0, 2);
+
             setUserProfile({
-              displayName: data.display_name || data.displayName || session.user.email?.split("@")[0] || "User",
-              initials: data.initials || (data.display_name ? data.display_name.trim().split(/\s+/).map((p: string) => p[0]).join("").toUpperCase().slice(0, 2) : "US"),
+              displayName,
+              initials,
               bio: data.bio || "",
-              avatarUrl: data.avatar_url || data.avatarUrl || undefined,
-              personalLink: data.personal_link || data.personalLink || "",
-              currentlyReadingFav: data.currently_reading_fav || data.currentlyReadingFav || undefined,
-              allTimeFav: data.all_time_fav || data.allTimeFav || undefined,
+              favGenres: data.fav_genres || undefined,
+              avatarUrl: data.avatar_url || undefined,
+              personalLink: data.personal_link || "",
+              currentlyReadingFav: data.curr_reading_info || undefined,
+              allTimeFav: data.all_time_fav_book || undefined,
+              isPublic: data.is_public ?? true,
             });
           }
         } catch (err) {
-          console.error("Error syncing profile with Supabase:", err);
+          console.error("[Profile] Unexpected error syncing profile:", err);
         }
       };
       fetchProfile();
     } else {
-      // Default fallback for logged-out view
+      // Logged-out fallback
       setUserProfile({
         displayName: "Local User",
         initials: "LU",
         bio: "Avid reader and aspiring critic. Lover of literary fiction, hard sci-fi, and the occasional philosophy deep-dive. Currently obsessing over Dune. ✨📚",
+        favGenres: ["Literary Fiction", "Sci-Fi", "Philosophy"],
         personalLink: "goodreads.com/localuser",
         allTimeFav: {
           title: "Dune",
           author: "Frank Herbert",
           coverUrl: "https://books.google.com/books/publisher/content?id=B1hSG45JCX4C&printsec=frontcover&img=1&zoom=1",
         },
+        isPublic: true,
       });
     }
   }, [session]);
+
 
   const updateProfile = useCallback((updates: Partial<UserProfile>) => {
     setUserProfile((prev) => {
