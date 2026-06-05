@@ -15,6 +15,7 @@ import {
 import { useReviews } from "@/lib/ReviewContext";
 import { useDebounce } from "@/hooks/useDebounce";
 import { getHighResCover } from "@/lib/utils";
+import { supabase } from "@/utils/supabaseClient";
 
 type BookResult = {
   id: string;
@@ -173,6 +174,8 @@ export function SettingsModal() {
     readingChallenge,
     showSettings,
     setShowSettings,
+    session,
+    signOut,
   } = useReviews();
 
   const [name, setName] = useState(userProfile.displayName);
@@ -182,6 +185,9 @@ export function SettingsModal() {
   const [avatarPreview, setAvatarPreview] = useState<string | undefined>(userProfile.avatarUrl);
   const [currentlyReading, setCurrentlyReading] = useState(userProfile.currentlyReadingFav);
   const [allTimeFav, setAllTimeFav] = useState(userProfile.allTimeFav);
+  
+  const [saving, setSaving] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Sync on open
@@ -194,6 +200,7 @@ export function SettingsModal() {
       setAvatarPreview(userProfile.avatarUrl);
       setCurrentlyReading(userProfile.currentlyReadingFav);
       setAllTimeFav(userProfile.allTimeFav);
+      setErrorMessage("");
     }
   }, [showSettings, userProfile, readingChallenge.target]);
 
@@ -208,17 +215,49 @@ export function SettingsModal() {
     reader.readAsDataURL(file);
   };
 
-  const handleSave = () => {
-    updateProfile({
-      displayName: name,
-      bio,
-      personalLink: link,
-      avatarUrl: avatarPreview,
-      currentlyReadingFav: currentlyReading,
-      allTimeFav,
-    });
-    readingChallenge.setTarget(goalTarget);
-    setShowSettings(false);
+  const handleSave = async () => {
+    setSaving(true);
+    setErrorMessage("");
+    try {
+      if (session?.user) {
+        // Sync profile changes to Supabase profiles table
+        const { error } = await supabase
+          .from("profiles")
+          .update({
+            display_name: name,
+            bio,
+            personal_link: link,
+            avatar_url: avatarPreview,
+            currently_reading_fav: currentlyReading,
+            all_time_fav: allTimeFav,
+          })
+          .eq("id", session.user.id);
+        
+        if (error) {
+          console.error("Error saving profile to Supabase:", error);
+          setErrorMessage(error.message);
+          setSaving(false);
+          return;
+        }
+      }
+
+      // Update local context state
+      updateProfile({
+        displayName: name,
+        bio,
+        personalLink: link,
+        avatarUrl: avatarPreview,
+        currentlyReadingFav: currentlyReading,
+        allTimeFav,
+      });
+      readingChallenge.setTarget(goalTarget);
+      setShowSettings(false);
+    } catch (err: any) {
+      console.error(err);
+      setErrorMessage(err.message || "An unexpected error occurred.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (!showSettings) return null;
@@ -375,22 +414,49 @@ export function SettingsModal() {
                 <span className="text-sm text-neutral-500">books this year</span>
               </div>
             </div>
+
+            {errorMessage && (
+              <div className="text-xs text-red-400 bg-red-950/30 border border-red-900/30 rounded-xl px-4 py-2.5 mt-4">
+                {errorMessage}
+              </div>
+            )}
           </div>
 
           {/* Footer */}
-          <div className="flex gap-3 px-6 py-4 border-t border-neutral-800">
-            <button
-              onClick={() => setShowSettings(false)}
-              className="flex-1 py-2.5 rounded-xl text-sm text-neutral-400 bg-neutral-800 hover:bg-neutral-700 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSave}
-              className="flex-1 py-2.5 rounded-xl text-sm text-white bg-brand-accent hover:bg-brand-accent/80 transition-colors font-semibold"
-            >
-              Save Changes
-            </button>
+          <div className="flex flex-col sm:flex-row gap-3 px-6 py-4 border-t border-neutral-800">
+            {session && (
+              <button
+                onClick={async () => {
+                  setShowSettings(false);
+                  await signOut();
+                }}
+                className="py-2.5 px-4 rounded-xl text-sm text-red-400 border border-red-900/30 bg-red-950/20 hover:bg-red-950/40 transition-colors font-medium sm:mr-auto cursor-pointer"
+              >
+                Sign Out
+              </button>
+            )}
+            <div className="flex gap-3 flex-1 sm:justify-end">
+              <button
+                onClick={() => setShowSettings(false)}
+                className="flex-1 sm:flex-initial sm:px-6 py-2.5 rounded-xl text-sm text-neutral-400 bg-neutral-800 hover:bg-neutral-700 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={saving}
+                onClick={handleSave}
+                className="flex-1 sm:flex-initial sm:px-6 py-2.5 rounded-xl text-sm text-white bg-brand-accent hover:bg-brand-accent/80 transition-colors font-semibold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save Changes"
+                )}
+              </button>
+            </div>
           </div>
         </motion.div>
       </motion.div>

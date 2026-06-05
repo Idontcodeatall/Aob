@@ -1,7 +1,9 @@
 "use client";
 
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
 import { getHighResCover } from "./utils";
+import { Session } from "@supabase/supabase-js";
+import { supabase } from "@/utils/supabaseClient";
 
 export type Post = {
   id: string;
@@ -292,6 +294,9 @@ type ReviewContextType = {
   updateProfile: (updates: Partial<UserProfile>) => void;
   showSettings: boolean;
   setShowSettings: (show: boolean) => void;
+  session: Session | null;
+  authLoading: boolean;
+  signOut: () => Promise<void>;
 };
 
 const ReviewContext = createContext<ReviewContextType | undefined>(undefined);
@@ -332,17 +337,108 @@ export function ReviewProvider({ children }: { children: React.ReactNode }) {
     },
   });
 
-  const updateProfile = (updates: Partial<UserProfile>) => {
+  const [session, setSession] = useState<Session | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  // Initialize and listen to Auth state changes
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setAuthLoading(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setAuthLoading(false);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  // Fetch or create profile whenever session changes
+  useEffect(() => {
+    if (session?.user) {
+      const fetchProfile = async () => {
+        try {
+          const { data, error } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("id", session.user.id)
+            .single();
+
+          if (error || !data) {
+            const emailPrefix = session.user.email?.split("@")[0] || "User";
+            const displayName = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
+            
+            const defaultProfile = {
+              id: session.user.id,
+              username: emailPrefix,
+              display_name: displayName,
+              bio: "Avid reader and aspiring critic. ✨📚",
+              personal_link: "",
+            };
+
+            await supabase.from("profiles").insert([defaultProfile]);
+
+            setUserProfile({
+              displayName,
+              initials: displayName.trim().split(/\s+/).map((p) => p[0]).join("").toUpperCase().slice(0, 2),
+              bio: "Avid reader and aspiring critic. ✨📚",
+              personalLink: "",
+              allTimeFav: {
+                title: "Dune",
+                author: "Frank Herbert",
+                coverUrl: "https://books.google.com/books/publisher/content?id=B1hSG45JCX4C&printsec=frontcover&img=1&zoom=1",
+              },
+            });
+          } else {
+            setUserProfile({
+              displayName: data.display_name || data.displayName || session.user.email?.split("@")[0] || "User",
+              initials: data.initials || (data.display_name ? data.display_name.trim().split(/\s+/).map((p: string) => p[0]).join("").toUpperCase().slice(0, 2) : "US"),
+              bio: data.bio || "",
+              avatarUrl: data.avatar_url || data.avatarUrl || undefined,
+              personalLink: data.personal_link || data.personalLink || "",
+              currentlyReadingFav: data.currently_reading_fav || data.currentlyReadingFav || undefined,
+              allTimeFav: data.all_time_fav || data.allTimeFav || undefined,
+            });
+          }
+        } catch (err) {
+          console.error("Error syncing profile with Supabase:", err);
+        }
+      };
+      fetchProfile();
+    } else {
+      // Default fallback for logged-out view
+      setUserProfile({
+        displayName: "Local User",
+        initials: "LU",
+        bio: "Avid reader and aspiring critic. Lover of literary fiction, hard sci-fi, and the occasional philosophy deep-dive. Currently obsessing over Dune. ✨📚",
+        personalLink: "goodreads.com/localuser",
+        allTimeFav: {
+          title: "Dune",
+          author: "Frank Herbert",
+          coverUrl: "https://books.google.com/books/publisher/content?id=B1hSG45JCX4C&printsec=frontcover&img=1&zoom=1",
+        },
+      });
+    }
+  }, [session]);
+
+  const updateProfile = useCallback((updates: Partial<UserProfile>) => {
     setUserProfile((prev) => {
       const updated = { ...prev, ...updates };
-      // Auto-compute initials from display name
       if (updates.displayName) {
         const parts = updates.displayName.trim().split(/\s+/);
         updated.initials = parts.map((p) => p[0]).join("").toUpperCase().slice(0, 2);
       }
       return updated;
     });
-  };
+  }, []);
+
+  const signOut = useCallback(async () => {
+    await supabase.auth.signOut();
+  }, []);
 
   const addPost = (post: Post) => {
     setPosts((prev) => [post, ...prev]);
@@ -378,6 +474,7 @@ export function ReviewProvider({ children }: { children: React.ReactNode }) {
       readingChallenge: { target: challengeTarget, setTarget: setChallengeTarget },
       userProfile, updateProfile,
       showSettings, setShowSettings,
+      session, authLoading, signOut,
     }}>
       {children}
     </ReviewContext.Provider>

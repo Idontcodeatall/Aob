@@ -12,7 +12,7 @@ import {
   Legend,
   ArcElement,
 } from "chart.js";
-import { useReviews, Post } from "@/lib/ReviewContext";
+import { useReviews, Post, LibraryItem } from "@/lib/ReviewContext";
 import { BookCover } from "@/components/BookCover";
 import {
   getGenreFrequency,
@@ -20,7 +20,8 @@ import {
   getChallengeStatus,
   GENRE_COLORS,
 } from "@/lib/analytics";
-import { BookOpen, Star, Target, TrendingUp, Edit3, ExternalLink, Heart, MessageCircle, X } from "lucide-react";
+import { BookOpen, Star, Target, TrendingUp, Edit3, ExternalLink, Heart, MessageCircle, X, Loader2 } from "lucide-react";
+import { supabase } from "@/utils/supabaseClient";
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend, ArcElement);
 
@@ -43,9 +44,28 @@ const modalRadarOptions = {
 };
 
 export default function ProfilePage() {
+  const reviewContext = useReviews();
+  const library: LibraryItem[] = reviewContext.library ?? [];
+  const {
+    posts,
+    readingChallenge,
+    userProfile,
+    setShowSettings,
+    addToLibrary,
+    session,
+    authLoading,
+    signOut,
+  } = reviewContext;
+
   const [isMounted, setIsMounted] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [authError, setAuthError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isBookFinished = useMemo(() => {
     if (!selectedPost) return false;
@@ -62,7 +82,71 @@ export default function ProfilePage() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const { posts, library, readingChallenge, userProfile, setShowSettings, addToLibrary } = useReviews();
+  const handleAuthSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !password) {
+      setAuthError("Please fill in all fields.");
+      return;
+    }
+    setAuthError("");
+    setIsSubmitting(true);
+
+    try {
+      if (isSignUp) {
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+        });
+
+        if (signUpError) {
+          setAuthError(signUpError.message);
+          setIsSubmitting(false);
+          return;
+        }
+
+        if (signUpData?.user) {
+          const emailPrefix = email.split("@")[0];
+          const displayName = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
+          
+          const defaultProfile = {
+            id: signUpData.user.id,
+            username: emailPrefix,
+            display_name: displayName,
+            bio: "Avid reader and aspiring critic. ✨📚",
+            personal_link: "",
+          };
+
+          const { error: insertError } = await supabase
+            .from("profiles")
+            .insert([defaultProfile]);
+
+          if (insertError) {
+            console.error("Error creating default profile record on signup:", insertError);
+          }
+
+          alert("Account created successfully!");
+        }
+      } else {
+        const { error: loginError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (loginError) {
+          setAuthError(loginError.message);
+          setIsSubmitting(false);
+          return;
+        }
+      }
+    } catch (err: any) {
+      console.error("[Auth] Unexpected network/system error:", err);
+      const msg = err?.message || err?.toString() || "An unexpected error occurred.";
+      setAuthError(`Network error: ${msg}`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const finishedBooks = library.filter((b) => b.status === "Finished");
   const reviewsWithRatings = posts.filter((p) => p.type === "DeepReview" && p.ratings);
 
@@ -161,12 +245,98 @@ export default function ProfilePage() {
     maintainAspectRatio: false,
   };
 
-  if (!isMounted) {
+  if (!isMounted || authLoading) {
     return (
       <div className="flex-1 w-full max-w-6xl mx-auto p-4 md:p-8 min-h-screen flex items-center justify-center">
-        <div className="animate-pulse flex flex-col items-center gap-4">
-          <div className="w-32 h-32 rounded-full bg-neutral-800" />
-          <div className="w-48 h-8 bg-neutral-800 rounded-lg" />
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 size={36} className="text-brand-accent animate-spin" />
+          <p className="text-sm text-neutral-400 font-medium tracking-wide">Loading Profile...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return (
+      <div className="flex-1 w-full max-w-md mx-auto px-4 py-16 min-h-screen flex flex-col justify-center">
+        <div className="bg-neutral-900/50 border border-neutral-800 rounded-2xl p-8 shadow-2xl backdrop-blur-sm border-t-[3px] border-t-brand-accent animate-fadeIn">
+          <div className="text-center mb-8">
+            <h1 className="font-serif text-3xl font-bold text-brand-text mb-2">
+              {isSignUp ? "Create an Account" : "Welcome Back"}
+            </h1>
+            <p className="text-xs text-neutral-500 max-w-xs mx-auto">
+              {isSignUp 
+                ? "Join Archive of our Books to track, review, and curate your custom library." 
+                : "Sign in to access your reading challenge, reviews, and library analytics."}
+            </p>
+          </div>
+
+          <form onSubmit={handleAuthSubmit} className="space-y-5">
+            <div>
+              <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-2">
+                Email Address
+              </label>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-accent focus:ring-1 focus:ring-brand-accent transition-all placeholder:text-neutral-750"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-2">
+                Password
+              </label>
+              <input
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-accent focus:ring-1 focus:ring-brand-accent transition-all placeholder:text-neutral-750"
+              />
+            </div>
+
+            {authError && (
+              <div className="text-xs text-red-400 bg-red-950/20 border border-red-900/30 rounded-xl px-4 py-2.5">
+                {authError}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full py-3 px-4 rounded-xl text-sm font-semibold text-white bg-brand-accent hover:bg-brand-accent/90 focus:outline-none transition-colors shadow-lg shadow-brand-accent/15 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  {isSignUp ? "Creating Account..." : "Signing In..."}
+                </>
+              ) : (
+                isSignUp ? "Sign Up" : "Sign In"
+              )}
+            </button>
+          </form>
+
+          <div className="text-center mt-6 pt-6 border-t border-neutral-800/60">
+            <p className="text-xs text-neutral-500">
+              {isSignUp ? "Already have an account?" : "New to Archive of our Books?"}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSignUp(!isSignUp);
+                  setAuthError("");
+                }}
+                className="text-brand-accent hover:underline font-medium ml-1.5 cursor-pointer focus:outline-none bg-transparent border-none"
+              >
+                {isSignUp ? "Sign In" : "Create Account"}
+              </button>
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -203,6 +373,12 @@ export default function ProfilePage() {
               >
                 <Edit3 size={14} />
                 Edit Profile
+              </button>
+              <button
+                onClick={signOut}
+                className="flex items-center gap-1.5 text-sm font-medium text-red-400 border border-red-900/30 rounded-lg px-3.5 py-1.5 hover:bg-red-950/20 transition-colors cursor-pointer"
+              >
+                Sign Out
               </button>
             </div>
 
