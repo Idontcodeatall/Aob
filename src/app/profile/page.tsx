@@ -105,11 +105,16 @@ export default function ProfilePage() {
         }
 
         if (signUpData?.user) {
+          // Generate unique username
+          const emailPrefix = email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+          const randomNum = Math.floor(1000 + Math.random() * 9000);
+          const generatedUsername = `${emailPrefix}${randomNum}`;
+
           // Step 1: Insert the canonical minimal row immediately so the
           // onAuthStateChange profile-fetch always finds an existing record.
           const { error: insertError } = await supabase
             .from("profiles")
-            .insert([{ id: signUpData.user.id, username: "", display_name: "" }]);
+            .insert([{ id: signUpData.user.id, username: generatedUsername, display_name: "" }]);
 
           if (insertError && insertError.code !== "23505") {
             // 23505 = unique_violation — row already exists (e.g. email-confirm retry)
@@ -117,13 +122,13 @@ export default function ProfilePage() {
           }
 
           // Step 2: Upsert the enriched defaults (display name derived from email).
-          const emailPrefix = email.split("@")[0];
-          const displayName = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
+          const rawPrefix = email.split("@")[0];
+          const displayName = rawPrefix.charAt(0).toUpperCase() + rawPrefix.slice(1);
           await supabase
             .from("profiles")
             .upsert([{
               id: signUpData.user.id,
-              username: emailPrefix,
+              username: generatedUsername,
               display_name: displayName,
               bio: "Avid reader and aspiring critic. ✨📚",
               personal_link: "",
