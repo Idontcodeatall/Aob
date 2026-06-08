@@ -116,7 +116,7 @@ function UnifiedPostCard({ post }: { post: Post }) {
   };
 
   // Quote text for DeepReview overlay — ONLY show if explicitly provided
-  const overlayQuoteText = post.overlayQuote;
+  const overlayQuoteText = post.overlayQuote || (post as any).favoriteQuote || (post as any).favorite_quote;
 
   return (
     <article className="bg-brand-bg border-b border-neutral-800/50">
@@ -162,9 +162,9 @@ function UnifiedPostCard({ post }: { post: Post }) {
         onDoubleClick={handleDoubleTap}
       >
         {/* Hero Image / Book Cover */}
-        {post.imageUrl ? (
+        {post.customCoverUrl || post.imageUrl ? (
           <img
-            src={post.imageUrl}
+            src={post.customCoverUrl || post.imageUrl}
             alt={post.bookTitle}
             className="w-full h-full object-cover"
             loading="lazy"

@@ -31,7 +31,7 @@ export default function RootLayout({
       lang="en"
       className={`${inter.variable} ${playfair.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex font-sans bg-brand-bg text-brand-text">
+      <body suppressHydrationWarning className="min-h-full flex font-sans bg-brand-bg text-brand-text">
         <ReviewProvider>
           <AppShell>{children}</AppShell>
         </ReviewProvider>

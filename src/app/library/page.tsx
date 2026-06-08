@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useReviews, LibraryStatus, Post, LibraryItem } from "@/lib/ReviewContext";
+import { supabase } from "@/utils/supabaseClient";
 import { getHighResCover } from "@/lib/utils";
 import { BookCover } from "@/components/BookCover";
 import { Radar } from "react-chartjs-2";
@@ -28,6 +29,7 @@ import {
   Coffee,
   Star,
   X,
+  Trash2,
 } from "lucide-react";
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, ChartTooltip, ChartLegend);
@@ -161,14 +163,17 @@ function ProgressUpdateModal({
 function BookCard({
   item,
   onUpdateProgress,
+  onRemove,
   review,
   onClick,
 }: {
   item: LibraryItem;
   onUpdateProgress: (id: string) => void;
+  onRemove: (id: string) => void;
   review?: Post | null;
   onClick?: () => void;
 }) {
+  const router = useRouter();
   const progress = Math.min(
     100,
     Math.round((item.pagesRead / item.totalPages) * 100)
@@ -209,7 +214,8 @@ function BookCard({
     maintainAspectRatio: false,
   };
 
-  const coverUrl = review?.coverUrl || item.thumbnail;
+  const hasCustomCover = review?.customCoverUrl || item.userImageUrl;
+  const coverUrl = review?.customCoverUrl || item.userImageUrl || review?.coverUrl || item.thumbnail;
 
   return (
     <motion.div
@@ -224,11 +230,20 @@ function BookCard({
       {/* Cover container — 2:3 aspect ratio */}
       <div className="relative w-full aspect-[2/3] rounded-xl overflow-hidden bg-neutral-800/80 shadow-lg group-hover:shadow-2xl group-hover:shadow-brand-accent/10 transition-all duration-500">
         {/* Cover image via SmartBookCover */}
-        <BookCover 
-          url={coverUrl} 
-          alt={item.title} 
-          className="group-hover:scale-105 transition-transform duration-700" 
-        />
+        {hasCustomCover ? (
+          <img 
+            src={coverUrl}
+            alt={item.title}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+            loading="lazy"
+          />
+        ) : (
+          <BookCover 
+            url={coverUrl} 
+            alt={item.title} 
+            className="group-hover:scale-105 transition-transform duration-700" 
+          />
+        )}
 
         {/* Floating stats on cover (Reading items only) */}
         {isReading && (
@@ -289,7 +304,7 @@ function BookCard({
             <div className="flex gap-2">
               {isReading && (
                 <button
-                  onClick={() => onUpdateProgress(item.id)}
+                  onClick={(e) => { e.stopPropagation(); onUpdateProgress(item.id); }}
                   className="p-2.5 rounded-full bg-brand-accent/90 backdrop-blur-sm text-white hover:bg-brand-accent transition-all duration-200 hover:scale-110 shadow-lg"
                   title="Update progress"
                 >
@@ -297,16 +312,21 @@ function BookCard({
                 </button>
               )}
               <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  router.push(`/post/review?book_id=${item.id}`);
+                }}
                 className="p-2.5 rounded-full bg-white/15 backdrop-blur-sm text-white hover:bg-white/25 transition-all duration-200 hover:scale-110 shadow-lg"
                 title="Write review"
               >
                 <PenLine size={18} />
               </button>
               <button
-                className="p-2.5 rounded-full bg-white/15 backdrop-blur-sm text-white hover:bg-white/25 transition-all duration-200 hover:scale-110 shadow-lg"
-                title="Favorite"
+                onClick={(e) => { e.stopPropagation(); onRemove(item.id); }}
+                className="p-2.5 rounded-full bg-red-900/70 backdrop-blur-sm text-red-200 hover:bg-red-700 transition-all duration-200 hover:scale-110 shadow-lg"
+                title="Remove from library"
               >
-                <Heart size={18} />
+                <Trash2 size={18} />
               </button>
             </div>
           )}
@@ -319,7 +339,7 @@ function BookCard({
           {item.title}
         </h3>
         <p className="text-xs text-neutral-500 truncate mt-0.5">
-          {item.authors.join(", ")}
+          {item.author}
         </p>
       </div>
     </motion.div>
@@ -345,11 +365,63 @@ const modalRadarOptions = {
 };
 
 export default function LibraryPage() {
-  const { library, updateLibraryProgress, posts } = useReviews();
+  const { library, updateLibraryProgress, removeFromLibrary, updateLibraryItem, posts, session } = useReviews();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<LibraryStatus>("Reading");
   const [progressModal, setProgressModal] = useState<string | null>(null);
   const [selectedReviewBook, setSelectedReviewBook] = useState<{ item: LibraryItem; review: Post | null } | null>(null);
+
+  const handleRemoveBook = async (bookId: string) => {
+    // Optimistically remove from UI immediately
+    removeFromLibrary(bookId);
+
+    if (!session?.user?.id) {
+      console.warn('[handleRemoveBook] No session — removed from local context only.');
+      return;
+    }
+
+    const { error } = await supabase
+      .from('library')
+      .delete()
+      .eq('book_id', bookId)
+      .eq('user_id', session.user.id);
+
+    if (error) {
+      console.error('CRITICAL SUPABASE DELETE ERROR:', error.message, error.details, error.hint);
+    } else {
+      console.log('[Supabase] Book removed successfully. book_id:', bookId);
+    }
+  };
+
+  const handleChangeStatus = async (bookId: string, newStatus: LibraryStatus) => {
+    // Optimistic local update
+    updateLibraryItem(bookId, { status: newStatus });
+
+    // Update local modal state to prevent orphan visual state
+    if (selectedReviewBook && selectedReviewBook.item.id === bookId) {
+      setSelectedReviewBook({
+        ...selectedReviewBook,
+        item: { ...selectedReviewBook.item, status: newStatus }
+      });
+    }
+
+    if (!session?.user?.id) {
+      console.warn('[handleChangeStatus] No session — updated local context only.');
+      return;
+    }
+
+    const { error } = await supabase
+      .from('library')
+      .update({ status: newStatus, updated_at: new Date().toISOString() })
+      .eq('book_id', bookId)
+      .eq('user_id', session.user.id);
+
+    if (error) {
+      console.error('CRITICAL SUPABASE UPDATE ERROR:', error.message, error.details, error.hint);
+    } else {
+      console.log('[Supabase] Status updated to', newStatus, 'for book_id:', bookId);
+    }
+  };
 
   const tabs: LibraryStatus[] = ["TBR", "Reading", "Finished", "DNF"];
   const displayItems = library.filter((item) => item.status === activeTab);
@@ -483,6 +555,7 @@ export default function LibraryPage() {
                   key={item.id}
                   item={item}
                   onUpdateProgress={(id) => setProgressModal(id)}
+                  onRemove={handleRemoveBook}
                   review={reviewsByTitle.get(item.title) || null}
                   onClick={activeTab === "Finished" ? () => setSelectedReviewBook({ item, review: reviewsByTitle.get(item.title) || null }) : undefined}
                 />
@@ -508,6 +581,19 @@ export default function LibraryPage() {
       {selectedReviewBook && (
         <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setSelectedReviewBook(null)}>
           <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl relative" onClick={(e) => e.stopPropagation()}>
+            {selectedReviewBook.review && (
+              <button 
+                onClick={() => {
+                  const bookId = selectedReviewBook.item.id;
+                  setSelectedReviewBook(null);
+                  router.push(`/post/review?book_id=${bookId}`);
+                }}
+                className="absolute top-4 right-14 p-2 bg-black/20 hover:bg-black/50 rounded-full text-white z-10 transition-colors cursor-pointer"
+                title="Edit review"
+              >
+                <PenLine size={20} />
+              </button>
+            )}
             <button 
               onClick={() => setSelectedReviewBook(null)}
               className="absolute top-4 right-4 p-2 bg-black/20 hover:bg-black/50 rounded-full text-white z-10 transition-colors cursor-pointer"
@@ -518,11 +604,19 @@ export default function LibraryPage() {
             <div className="flex flex-col md:flex-row h-full max-h-[90vh]">
               {/* Cover Column */}
               <div className="w-full md:w-1/2 bg-neutral-950 relative flex items-center justify-center aspect-[4/5] md:aspect-auto md:min-h-[400px]">
-                <BookCover 
-                  url={selectedReviewBook.review?.coverUrl || selectedReviewBook.item.thumbnail} 
-                  alt={selectedReviewBook.item.title} 
-                  className="h-full"
-                />
+                {selectedReviewBook.review?.customCoverUrl || selectedReviewBook.item.userImageUrl ? (
+                  <img
+                    src={selectedReviewBook.review?.customCoverUrl || selectedReviewBook.item.userImageUrl}
+                    alt={selectedReviewBook.item.title}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <BookCover 
+                    url={selectedReviewBook.review?.coverUrl || selectedReviewBook.item.thumbnail} 
+                    alt={selectedReviewBook.item.title} 
+                    className="h-full"
+                  />
+                )}
                 {selectedReviewBook.review && selectedReviewBook.review.ratings && (
                   <div className="absolute inset-0 bg-black/45 flex items-center justify-center p-4">
                     <div className="w-3/4 aspect-square opacity-95">
@@ -561,9 +655,25 @@ export default function LibraryPage() {
                   <h2 className="font-serif text-2xl font-bold text-white mb-0.5 leading-snug">
                     {selectedReviewBook.item.title}
                   </h2>
-                  <p className="text-brand-accent text-sm font-medium">
-                    by {selectedReviewBook.item.authors.join(", ")}
+                  <p className="text-brand-accent text-sm font-medium mb-3">
+                    by {selectedReviewBook.item.author}
                   </p>
+                  {/* Status Selector */}
+                  <div className="flex gap-1.5 flex-wrap">
+                    {(["TBR", "Reading", "Finished", "DNF"] as LibraryStatus[]).map((s) => (
+                      <button
+                        key={s}
+                        onClick={() => handleChangeStatus(selectedReviewBook.item.id, s)}
+                        className={`px-3 py-1 rounded-full text-[11px] font-semibold border transition-all ${
+                          selectedReviewBook.item.status === s
+                            ? "bg-brand-accent border-brand-accent text-white"
+                            : "bg-transparent border-neutral-700 text-neutral-400 hover:border-neutral-500 hover:text-neutral-200"
+                        }`}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 {selectedReviewBook.review ? (
@@ -586,9 +696,9 @@ export default function LibraryPage() {
                     <div className="border-t border-neutral-800 my-2" />
 
                     {/* Quote (if exists) */}
-                    {selectedReviewBook.review.overlayQuote && (
+                    {(selectedReviewBook.review.overlayQuote || (selectedReviewBook.review as any).favoriteQuote || (selectedReviewBook.review as any).favorite_quote) && (
                       <div className="border-l-[3px] border-brand-accent pl-3 my-4 italic text-sm text-neutral-300">
-                        "{selectedReviewBook.review.overlayQuote}"
+                        "{selectedReviewBook.review.overlayQuote || (selectedReviewBook.review as any).favoriteQuote || (selectedReviewBook.review as any).favorite_quote}"
                       </div>
                     )}
 
@@ -607,7 +717,7 @@ export default function LibraryPage() {
                     <button
                       onClick={() => {
                         const title = selectedReviewBook.item.title;
-                        const author = selectedReviewBook.item.authors.join(", ");
+                        const author = selectedReviewBook.item.author;
                         const coverUrl = selectedReviewBook.item.thumbnail || "";
                         const params = new URLSearchParams({ title, author, cover: coverUrl });
                         router.push(`/post/review?${params.toString()}`);

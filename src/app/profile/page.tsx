@@ -604,7 +604,7 @@ export default function ProfilePage() {
         <div className="grid grid-cols-3 gap-1 md:gap-2">
           {userPosts.map((post) => {
             const isDeepReview = post.type === "DeepReview" && post.ratings;
-            const tileImage = post.imageUrl || post.coverUrl;
+            const tileImage = post.customCoverUrl || post.imageUrl || post.coverUrl;
 
             // Mini radar for DeepReview hover
             const labels = isDeepReview
@@ -727,9 +727,9 @@ export default function ProfilePage() {
             <div className="flex flex-col md:flex-row h-full max-h-[90vh]">
               {/* Media Column */}
               <div className="w-full md:w-1/2 bg-neutral-950 relative flex items-center justify-center aspect-[4/5] md:aspect-auto md:min-h-[400px]">
-                {selectedPost.imageUrl ? (
+                {selectedPost.customCoverUrl || selectedPost.imageUrl ? (
                   <img
-                    src={selectedPost.imageUrl}
+                    src={selectedPost.customCoverUrl || selectedPost.imageUrl}
                     alt={selectedPost.bookTitle}
                     className="w-full h-full object-cover"
                   />
@@ -815,7 +815,7 @@ export default function ProfilePage() {
                         addToLibrary({
                           id: `profile-add-${Date.now()}`,
                           title: selectedPost.bookTitle,
-                          authors: [selectedPost.bookAuthor],
+                          author: selectedPost.bookAuthor,
                           thumbnail: selectedPost.coverUrl || "",
                           status: "Finished",
                           totalPages: 300,
@@ -846,9 +846,9 @@ export default function ProfilePage() {
                 <div className="border-t border-neutral-800 my-2" />
 
                 {/* Quote (if visual or overlay quote exists) */}
-                {selectedPost.overlayQuote && (
+                {(selectedPost.overlayQuote || (selectedPost as any).favoriteQuote || (selectedPost as any).favorite_quote) && (
                   <div className="border-l-[3px] border-brand-accent pl-3 my-4 italic text-sm text-neutral-300">
-                    "{selectedPost.overlayQuote}"
+                    "{selectedPost.overlayQuote || (selectedPost as any).favoriteQuote || (selectedPost as any).favorite_quote}"
                   </div>
                 )}
 
@@ -869,7 +869,7 @@ export default function ProfilePage() {
                           addToLibrary({
                             id: `profile-add-${Date.now()}`,
                             title: selectedPost.bookTitle,
-                            authors: [selectedPost.bookAuthor],
+                            author: selectedPost.bookAuthor,
                             thumbnail: selectedPost.coverUrl || "",
                             status: "TBR",
                             totalPages: 300,
@@ -886,7 +886,7 @@ export default function ProfilePage() {
                           addToLibrary({
                             id: `profile-add-${Date.now()}`,
                             title: selectedPost.bookTitle,
-                            authors: [selectedPost.bookAuthor],
+                            author: selectedPost.bookAuthor,
                             thumbnail: selectedPost.coverUrl || "",
                             status: "Reading",
                             totalPages: 300,
@@ -903,7 +903,7 @@ export default function ProfilePage() {
                           addToLibrary({
                             id: `profile-add-${Date.now()}`,
                             title: selectedPost.bookTitle,
-                            authors: [selectedPost.bookAuthor],
+                            author: selectedPost.bookAuthor,
                             thumbnail: selectedPost.coverUrl || "",
                             status: "Finished",
                             totalPages: 300,
@@ -920,7 +920,7 @@ export default function ProfilePage() {
                           addToLibrary({
                             id: `profile-add-${Date.now()}`,
                             title: selectedPost.bookTitle,
-                            authors: [selectedPost.bookAuthor],
+                            author: selectedPost.bookAuthor,
                             thumbnail: selectedPost.coverUrl || "",
                             status: "DNF",
                             totalPages: 300,

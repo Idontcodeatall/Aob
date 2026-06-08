@@ -8,13 +8,14 @@ import { getGenreFrequency, getAggregateRadar } from "@/lib/analytics";
 import { motion, AnimatePresence } from "framer-motion";
 import { getHighResCover } from "@/lib/utils";
 import { BookCover } from "@/components/BookCover";
+import { supabase } from "@/utils/supabaseClient";
 
 
 type ViewState = "trending" | "search" | "ai";
 
 export default function BrowsePage() {
   const router = useRouter();
-  const { addToLibrary, posts, library } = useReviews();
+  const { addToLibrary, posts, library, session } = useReviews();
 
   const [view, setView] = useState<ViewState>("trending");
   const [selectedGenre, setSelectedGenre] = useState("All");
@@ -216,17 +217,38 @@ export default function BrowsePage() {
     router.push(`/post/review?${params.toString()}`);
   };
 
-  const handleAddToLibrary = (status: LibraryStatus) => {
+  const handleAddToLibrary = async (status: LibraryStatus) => {
     if (!selectedBook) return;
     const title = selectedBook.volumeInfo.title || "Unknown Title";
     const authors = selectedBook.volumeInfo.authors || ["Unknown Author"];
-    const thumbnail = getHighResCover(selectedBook.volumeInfo.imageLinks?.thumbnail);
+    const author = authors[0] || "Unknown Author";
+    const thumbnail = getHighResCover(selectedBook.volumeInfo.imageLinks?.thumbnail) || "";
     const totalPages = selectedBook.volumeInfo.pageCount || 300;
-    
+
+    // Write to Supabase if user is authenticated
+    if (session?.user?.id) {
+      const { data, error } = await supabase.from('library').insert([{
+        user_id: session.user.id,
+        book_id: selectedBook.id,
+        title,
+        author,
+        cover_url: thumbnail,
+        status,
+      }]);
+      if (error) {
+        console.error('CRITICAL SUPABASE INSERT ERROR:', error.message, error.details, error.hint);
+      } else {
+        console.log('[Supabase] Book inserted successfully:', data);
+      }
+    } else {
+      console.warn('[handleAddToLibrary] No session — writing to local context only.');
+    }
+
+    // Always update local context for immediate UI
     addToLibrary({
       id: selectedBook.id,
       title,
-      authors,
+      author,
       thumbnail,
       status,
       totalPages,
@@ -235,8 +257,59 @@ export default function BrowsePage() {
     router.push("/library");
   };
 
+  const [addingIds, setAddingIds] = useState<Set<string>>(new Set());
+
+  const handleCardAddToTBR = async (e: React.MouseEvent, book: any) => {
+    e.stopPropagation();
+    if (!session?.user?.id) {
+      console.error("[Add to TBR] No authenticated session found. User must be logged in.");
+      return;
+    }
+
+    const title = book.volumeInfo.title || "Unknown Title";
+    const author = book.volumeInfo.authors?.[0] || "Unknown Author";
+    const coverUrl = getHighResCover(book.volumeInfo.imageLinks?.thumbnail) || "";
+
+    setAddingIds((prev) => new Set(prev).add(book.id));
+
+    const { data, error } = await supabase.from('library').insert([{
+      user_id: session.user.id,
+      book_id: book.id,
+      title,
+      author,
+      cover_url: coverUrl,
+      status: 'TBR',
+    }]);
+
+    if (error) {
+      console.error('CRITICAL SUPABASE INSERT ERROR:', error.message, error.details, error.hint);
+      // Roll back the loading spinner
+      setAddingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(book.id);
+        return next;
+      });
+      return;
+    }
+
+    console.log('[Supabase] Book added to TBR successfully:', data);
+
+    // Update local context for immediate UI
+    addToLibrary({
+      id: book.id,
+      title,
+      author,
+      thumbnail: coverUrl,
+      status: "TBR",
+      totalPages: book.volumeInfo.pageCount || 300,
+      pagesRead: 0,
+    });
+  };
+
   const renderBookCard = (book: any, isAiMode = false) => {
     const cover = getHighResCover(book.volumeInfo.imageLinks?.thumbnail);
+    const inLibrary = library.some((item) => item.id === book.id || item.title === book.volumeInfo.title);
+    const isAdding = addingIds.has(book.id);
     return (
       <div 
         key={book.id} 
@@ -250,7 +323,19 @@ export default function BrowsePage() {
         />
         <div className="flex flex-col flex-1">
           <h3 className="text-sm font-semibold text-brand-text line-clamp-2 leading-tight group-hover:text-brand-accent transition-colors mb-1">{book.volumeInfo.title}</h3>
-          <p className="text-xs text-neutral-400 truncate">{book.volumeInfo.authors?.[0]}</p>
+          <p className="text-xs text-neutral-400 truncate mb-2">{book.volumeInfo.authors?.[0]}</p>
+          
+          <button
+            onClick={(e) => handleCardAddToTBR(e, book)}
+            disabled={inLibrary || isAdding}
+            className={`mt-auto mb-1 py-1.5 px-3 rounded-md text-[11px] font-semibold tracking-wide border transition-all flex items-center justify-center gap-1 z-10 w-fit ${
+              inLibrary
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400 cursor-default"
+                : "border-neutral-700 bg-neutral-800 text-neutral-300 hover:bg-brand-accent hover:border-brand-accent hover:text-white"
+            }`}
+          >
+            {isAdding ? "..." : inLibrary ? "✓ Added" : "+ Add to TBR"}
+          </button>
           
           {isAiMode && book.aiBlurb && (
             <div className="mt-3 bg-brand-accent/10 border border-brand-accent/20 rounded-md p-3">
@@ -480,21 +565,9 @@ export default function BrowsePage() {
 
                 {/* Prominent Minimalist Add to Library Button */}
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     if (!isBookFinished) {
-                      const title = selectedBook.volumeInfo.title || "Unknown Title";
-                      const authors = selectedBook.volumeInfo.authors || ["Unknown Author"];
-                      const thumbnail = getHighResCover(selectedBook.volumeInfo.imageLinks?.thumbnail);
-                      const totalPages = selectedBook.volumeInfo.pageCount || 300;
-                      addToLibrary({
-                        id: selectedBook.id,
-                        title,
-                        authors,
-                        thumbnail,
-                        status: "Finished",
-                        totalPages,
-                        pagesRead: totalPages,
-                      });
+                      await handleAddToLibrary("Finished");
                     }
                   }}
                   disabled={isBookFinished}

@@ -56,14 +56,25 @@ export type UserProfile = {
 export type LibraryStatus = "TBR" | "Reading" | "Finished" | "DNF";
 
 export type LibraryItem = {
-  id: string;
+  id: string;          // Google Books volume ID (= book_id in Supabase)
   title: string;
-  authors: string[];
+  author: string;
   thumbnail?: string;
   status: LibraryStatus;
   totalPages: number;
   pagesRead: number;
   genres?: string[];
+  // Review fields (persisted to Supabase library table)
+  rating?: number;
+  reviewText?: string;
+  favoriteQuote?: string;
+  rPacing?: number;
+  rVibe?: number;
+  rProse?: number;
+  rPlotInsight?: number;
+  rCharPersona?: number;
+  bookType?: string;
+  userImageUrl?: string;
 };
 
 const initialPosts: Post[] = [
@@ -97,7 +108,7 @@ const initialLibrary: LibraryItem[] = [
   {
     id: "mock1",
     title: "Dune",
-    authors: ["Frank Herbert"],
+    author: "Frank Herbert",
     status: "Reading",
     totalPages: 896,
     pagesRead: 537,
@@ -107,7 +118,7 @@ const initialLibrary: LibraryItem[] = [
   {
     id: "seed-f1",
     title: "The Great Gatsby",
-    authors: ["F. Scott Fitzgerald"],
+    author: "F. Scott Fitzgerald",
     status: "Finished",
     totalPages: 180,
     pagesRead: 180,
@@ -117,7 +128,7 @@ const initialLibrary: LibraryItem[] = [
   {
     id: "seed-f2",
     title: "Sapiens",
-    authors: ["Yuval Noah Harari"],
+    author: "Yuval Noah Harari",
     status: "Finished",
     totalPages: 498,
     pagesRead: 498,
@@ -127,7 +138,7 @@ const initialLibrary: LibraryItem[] = [
   {
     id: "seed-f3",
     title: "Project Hail Mary",
-    authors: ["Andy Weir"],
+    author: "Andy Weir",
     status: "Finished",
     totalPages: 476,
     pagesRead: 476,
@@ -137,7 +148,7 @@ const initialLibrary: LibraryItem[] = [
   {
     id: "seed-f4",
     title: "Atomic Habits",
-    authors: ["James Clear"],
+    author: "James Clear",
     status: "Finished",
     totalPages: 320,
     pagesRead: 320,
@@ -147,7 +158,7 @@ const initialLibrary: LibraryItem[] = [
   {
     id: "seed-f5",
     title: "The Name of the Wind",
-    authors: ["Patrick Rothfuss"],
+    author: "Patrick Rothfuss",
     status: "Finished",
     totalPages: 662,
     pagesRead: 662,
@@ -157,7 +168,7 @@ const initialLibrary: LibraryItem[] = [
   {
     id: "seed-f6",
     title: "Thinking, Fast and Slow",
-    authors: ["Daniel Kahneman"],
+    author: "Daniel Kahneman",
     status: "Finished",
     totalPages: 499,
     pagesRead: 499,
@@ -288,6 +299,8 @@ type ReviewContextType = {
   addPost: (post: Post) => void;
   library: LibraryItem[];
   addToLibrary: (item: LibraryItem) => void;
+  removeFromLibrary: (id: string) => void;
+  updateLibraryItem: (id: string, updates: Partial<LibraryItem>) => void;
   updateLibraryProgress: (id: string, pagesRead: number) => void;
   readingChallenge: { target: number; setTarget: (n: number) => void };
   stories: Story[];
@@ -440,6 +453,55 @@ export function ReviewProvider({ children }: { children: React.ReactNode }) {
     }
   }, [session]);
 
+  // Fetch user's library from Supabase whenever session changes
+  useEffect(() => {
+    const fetchLibrary = async () => {
+      if (!session?.user?.id) {
+        setLibrary(initialLibrary);
+        return;
+      }
+      try {
+        const { data, error } = await supabase
+          .from('library')
+          .select('*')
+          .eq('user_id', session.user.id);
+
+        if (error) {
+          console.error("Fetch Library Error:", error);
+          return;
+        }
+
+        if (data) {
+          const mappedLibrary: LibraryItem[] = data.map((row: any) => ({
+            id: row.book_id,
+            title: row.title,
+            author: row.author,
+            thumbnail: row.cover_url || undefined,
+            status: row.status as LibraryStatus,
+            totalPages: row.total_pages || 300,
+            pagesRead: row.pages_read || (row.status === 'Finished' ? (row.total_pages || 300) : 0),
+            rating: row.rating || undefined,
+            reviewText: row.review_txt || undefined,
+            favoriteQuote: row.favorite_quote || undefined,
+            rPacing: row.r_pacing || undefined,
+            rVibe: row.r_vibe || undefined,
+            rProse: row.r_prose || undefined,
+            rPlotInsight: row.r_plot_insight || undefined,
+            rCharPersona: row.r_char_persona || undefined,
+            bookType: row.book_type || undefined,
+            userImageUrl: row.user_image_url || undefined,
+          }));
+
+          setLibrary(mappedLibrary);
+        }
+      } catch (error) {
+        console.error("Fetch Library Error:", error);
+      }
+    };
+
+    fetchLibrary();
+  }, [session?.user?.id]);
+
 
   const updateProfile = useCallback((updates: Partial<UserProfile>) => {
     setUserProfile((prev) => {
@@ -474,6 +536,16 @@ export function ReviewProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
+  const removeFromLibrary = (id: string) => {
+    setLibrary((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const updateLibraryItem = (id: string, updates: Partial<LibraryItem>) => {
+    setLibrary((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, ...updates } : item))
+    );
+  };
+
   const updateLibraryProgress = (id: string, pagesRead: number) => {
     setLibrary((prev) =>
       prev.map((item) =>
@@ -485,7 +557,7 @@ export function ReviewProvider({ children }: { children: React.ReactNode }) {
   return (
     <ReviewContext.Provider value={{
       posts, addPost,
-      library, addToLibrary, updateLibraryProgress,
+      library, addToLibrary, removeFromLibrary, updateLibraryItem, updateLibraryProgress,
       stories, addStory,
       readingChallenge: { target: challengeTarget, setTarget: setChallengeTarget },
       userProfile, updateProfile,

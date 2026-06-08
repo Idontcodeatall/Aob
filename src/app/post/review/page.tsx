@@ -14,6 +14,7 @@ import {
 import { BookType, Bold, Italic, Link2, List, Star, Search, Loader2, Upload, X } from "lucide-react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useReviews } from "@/lib/ReviewContext";
+import { supabase } from "@/utils/supabaseClient";
 import { FICTION_TOOLTIP, NONFICTION_TOOLTIP } from "@/lib/analytics";
 import { useDebounce } from "@/hooks/useDebounce";
 import { getHighResCover } from "@/lib/utils";
@@ -48,7 +49,7 @@ type BookSuggestion = {
 function ReviewForm() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { addPost, addToLibrary } = useReviews();
+  const { addPost, addToLibrary, updateLibraryItem, library, session } = useReviews();
   const categoriesParam = searchParams.get("categories") || "";
   const fromBrowse = !!(searchParams.get("title"));
 
@@ -66,7 +67,7 @@ function ReviewForm() {
   const [customPhoto, setCustomPhoto] = useState<File | null>(null);
   const [customPhotoPreview, setCustomPhotoPreview] = useState<string>("");
   
-  const [overlayQuote, setOverlayQuote] = useState("");
+  const [favoriteQuote, setFavoriteQuote] = useState("");
   
   const [ratings, setRatings] = useState({
     pacing: 3,
@@ -75,6 +76,37 @@ function ReviewForm() {
     prose: 3,
     vibe: 3,
   });
+
+  const [isPublishing, setIsPublishing] = useState(false);
+  const editBookId = searchParams.get("book_id") || searchParams.get("id");
+
+  useEffect(() => {
+    if (editBookId) {
+      const book = library.find((item) => item.id === editBookId);
+      if (book) {
+        setTitle(book.title);
+        setAuthor(book.author);
+        setCoverUrl(book.thumbnail || "");
+        if (book.rating) setGeneralRating(book.rating);
+        if (book.reviewText) setContent(book.reviewText);
+        if (book.favoriteQuote) setFavoriteQuote(book.favoriteQuote);
+        setRatings({
+          pacing: book.rPacing ?? 3,
+          metricTwo: book.rCharPersona ?? 3,
+          metricThree: book.rPlotInsight ?? 3,
+          prose: book.rProse ?? 3,
+          vibe: book.rVibe ?? 3,
+        });
+        if (book.bookType) {
+          setIsFiction(book.bookType === "Fiction");
+        }
+        if (book.userImageUrl) {
+          setCustomPhotoPreview(book.userImageUrl);
+        }
+        setAutoFilled(true);
+      }
+    }
+  }, [editBookId, library]);
 
   // ─── Smart Search state ───
   const [suggestions, setSuggestions] = useState<BookSuggestion[]>([]);
@@ -176,13 +208,38 @@ function ReviewForm() {
     setRatings((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handlePublish = () => {
+  const handlePublish = async () => {
     // Validation
     if (!title || !author || generalRating === 0) {
       alert("Please ensure you've selected a book (Title & Author) and provided a star rating.");
       return;
     }
 
+    setIsPublishing(true);
+
+    let user_image_url: string | null = customPhotoPreview.startsWith("http") ? customPhotoPreview : null;
+    
+    if (customPhoto) {
+      try {
+        const fileName = `${Date.now()}-${customPhoto.name.replace(/[^a-zA-Z0-9.]/g, "_")}`;
+        const { data, error: uploadError } = await supabase.storage
+          .from('review_images')
+          .upload(fileName, customPhoto);
+
+        if (uploadError) {
+          console.error('CRITICAL SUPABASE STORAGE UPLOAD ERROR:', uploadError.message);
+        } else if (data) {
+          const { data: { publicUrl } } = supabase.storage
+            .from('review_images')
+            .getPublicUrl(fileName);
+          user_image_url = publicUrl;
+        }
+      } catch (err) {
+        console.error('Unexpected error during storage upload:', err);
+      }
+    }
+
+    // 1. Add to local posts feed
     addPost({
       id: Date.now().toString(),
       type: "DeepReview",
@@ -192,23 +249,97 @@ function ReviewForm() {
       bookTitle: title,
       bookAuthor: author,
       content,
-      overlayQuote: overlayQuote || undefined,
       coverUrl: coverUrl,
-      customCoverUrl: customPhotoPreview || undefined,
+      customCoverUrl: user_image_url || customPhotoPreview || undefined,
       isFiction,
       generalRating,
-      ratings: { ...ratings }
-    });
-    addToLibrary({
-      id: `book-${Date.now()}`,
-      title: title,
-      authors: author.split(",").map((a) => a.trim()),
-      thumbnail: coverUrl || customPhotoPreview || "",
-      status: "Finished",
-      totalPages: 300,
-      pagesRead: 300,
+      ratings: { ...ratings },
+      overlayQuote: favoriteQuote || undefined
     });
 
+    // 2. Find the matching library entry (by title match as fallback)
+    const existingItem = library.find(
+      (i) => i.title.toLowerCase() === title.toLowerCase()
+    );
+    const bookId = existingItem?.id ?? null;
+
+    const reviewPayload = {
+      status: 'Finished' as const,
+      rating: generalRating,
+      review_txt: content,
+      favorite_quote: favoriteQuote || null,
+      r_pacing: ratings.pacing,
+      r_vibe: ratings.vibe,
+      r_prose: ratings.prose,
+      r_plot_insight: ratings.metricThree,
+      r_char_persona: ratings.metricTwo,
+      book_type: isFiction ? 'Fiction' : 'Non-Fiction',
+      user_image_url: user_image_url || null,
+      updated_at: new Date().toISOString(),
+    };
+
+    // 3. Supabase UPDATE if user is logged in and we know the book_id
+    if (session?.user?.id && bookId) {
+      const { error } = await supabase
+        .from('library')
+        .update(reviewPayload)
+        .eq('book_id', bookId)
+        .eq('user_id', session.user.id);
+
+      if (error) {
+        console.error('CRITICAL SUPABASE UPDATE ERROR:', error.message, error.details, error.hint);
+      } else {
+        console.log('[Supabase] Review saved successfully for book_id:', bookId);
+      }
+    } else if (session?.user?.id && !bookId) {
+      // Book not in library yet — INSERT it as Finished with review data
+      const { error } = await supabase.from('library').insert([{
+        user_id: session.user.id,
+        book_id: `review-${Date.now()}`,
+        title,
+        author,
+        cover_url: coverUrl || user_image_url || customPhotoPreview || '',
+        ...reviewPayload,
+      }]);
+      if (error) {
+        console.error('CRITICAL SUPABASE INSERT ERROR:', error.message, error.details, error.hint);
+      } else {
+        console.log('[Supabase] New reviewed book inserted successfully.');
+      }
+    } else {
+      console.warn('[handlePublish] No session — review saved to local context only.');
+    }
+
+    // 4. Optimistic local state update
+    const localUpdates = {
+      status: 'Finished' as const,
+      rating: generalRating,
+      reviewText: content,
+      favoriteQuote: favoriteQuote || undefined,
+      rPacing: ratings.pacing,
+      rVibe: ratings.vibe,
+      rProse: ratings.prose,
+      rPlotInsight: ratings.metricThree,
+      rCharPersona: ratings.metricTwo,
+      pagesRead: 300,
+      bookType: isFiction ? 'Fiction' : 'Non-Fiction',
+      userImageUrl: user_image_url || undefined,
+    };
+
+    if (existingItem) {
+      updateLibraryItem(existingItem.id, localUpdates);
+    } else {
+      addToLibrary({
+        id: `book-${Date.now()}`,
+        title,
+        author,
+        thumbnail: coverUrl || user_image_url || customPhotoPreview || '',
+        totalPages: 300,
+        ...localUpdates,
+      });
+    }
+
+    setIsPublishing(false);
     router.push("/");
   };
 
@@ -397,16 +528,16 @@ function ReviewForm() {
           </h2>
           <div>
             <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-2">
-              Optional Book Quote
+              Favourite Quote
             </label>
             <textarea
-              value={overlayQuote}
-              onChange={(e) => setOverlayQuote(e.target.value)}
-              placeholder="A specific line to feature over the book cover (appears in maroon brackets)..."
-              rows={2}
+              value={favoriteQuote}
+              onChange={(e) => setFavoriteQuote(e.target.value)}
+              placeholder="Your single most memorable line from this book..."
+              rows={3}
               className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-2.5 text-brand-text focus:outline-none focus:border-brand-accent transition-colors resize-none text-sm italic"
             />
-            <p className="text-[10px] text-neutral-500 mt-2">This quote will be displayed in the maroon-bracket overlay on the Home Feed.</p>
+            <p className="text-[10px] text-neutral-500 mt-2">Saved to your library record — surfaces in your profile and book detail view.</p>
           </div>
         </section>
 
@@ -545,16 +676,25 @@ function ReviewForm() {
 
         <button 
           onClick={handlePublish}
-          disabled={!title || !author || generalRating === 0}
+          disabled={!title || !author || generalRating === 0 || isPublishing}
           className={`w-full py-3.5 rounded-xl font-medium shadow-lg transition-all flex items-center justify-center gap-2 ${
-            (!title || !author || generalRating === 0)
+            (!title || !author || generalRating === 0 || isPublishing)
               ? "bg-neutral-800 text-neutral-500 cursor-not-allowed"
               : "bg-brand-accent hover:bg-brand-accent/90 text-white active:scale-95"
           }`}
           title={(!title || !author || generalRating === 0) ? "Please add a book and a rating" : "Publish to Feed"}
         >
-          <BookType size={18} />
-          Publish Deep Review
+          {isPublishing ? (
+            <>
+              <Loader2 size={18} className="animate-spin" />
+              Publishing...
+            </>
+          ) : (
+            <>
+              <BookType size={18} />
+              Publish Deep Review
+            </>
+          )}
         </button>
       </div>
 

@@ -38,7 +38,7 @@ export function CurrentlyReading() {
         </div>
         <div className="flex-1 min-w-0">
           <h3 className="font-serif font-semibold text-lg text-brand-text truncate">{book.title}</h3>
-          <p className="text-brand-accent text-sm truncate">{book.authors.join(", ")}</p>
+          <p className="text-brand-accent text-sm truncate">{book.author}</p>
           
           <div className="mt-2 flex items-center gap-3">
             <div className="h-1.5 flex-1 bg-neutral-800 rounded-full overflow-hidden">
