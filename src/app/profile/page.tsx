@@ -20,8 +20,10 @@ import {
   getChallengeStatus,
   GENRE_COLORS,
 } from "@/lib/analytics";
-import { BookOpen, Star, Target, TrendingUp, Edit3, ExternalLink, Heart, MessageCircle, X, Loader2 } from "lucide-react";
+import { BookOpen, Star, Target, TrendingUp, Edit3, ExternalLink, Heart, MessageCircle, X, Loader2, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/utils/supabaseClient";
+import { CompleteProfileModal } from "@/components/CompleteProfileModal";
+import { AnimatePresence, motion } from "framer-motion";
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend, ArcElement);
 
@@ -60,6 +62,7 @@ export default function ProfilePage() {
   const [isMounted, setIsMounted] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -158,7 +161,7 @@ export default function ProfilePage() {
   };
 
   const finishedBooks = library.filter((b) => b.status === "Finished");
-  const reviewsWithRatings = posts.filter((p) => p.type === "DeepReview" && p.ratings);
+  const reviewsWithRatings = finishedBooks.filter(b => b.rPacing !== undefined || b.rCharPersona !== undefined || b.rPlotInsight !== undefined || b.rProse !== undefined || b.rVibe !== undefined);
 
   // All user posts for the grid (Visual + DeepReview)
   const userPosts = posts.filter(
@@ -354,6 +357,41 @@ export default function ProfilePage() {
 
   return (
     <div className="flex-1 w-full max-w-6xl mx-auto p-4 md:p-8 min-h-screen">
+
+      {/* ─── Complete Your Profile Banner ─── */}
+      <AnimatePresence>
+        {!userProfile.profileComplete && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.25 }}
+            className="mb-6 flex items-center gap-4 bg-neutral-900/80 border border-brand-accent/30 rounded-2xl px-5 py-4 shadow-md"
+          >
+            <div className="w-10 h-10 rounded-full bg-brand-accent/10 border border-brand-accent/25 flex items-center justify-center shrink-0">
+              <CheckCircle2 size={20} className="text-brand-accent" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-brand-text">Finish setting up your profile</p>
+              <p className="text-xs text-neutral-500 mt-0.5">Add your username, favourite genres, and import your Goodreads library.</p>
+            </div>
+            <button
+              id="complete-profile-btn"
+              onClick={() => setShowCompleteModal(true)}
+              className="shrink-0 px-4 py-2 rounded-xl bg-brand-accent text-white text-xs font-semibold hover:bg-brand-accent/90 transition-colors cursor-pointer"
+            >
+              Complete profile
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ─── Complete Profile Modal ─── */}
+      <AnimatePresence>
+        {showCompleteModal && (
+          <CompleteProfileModal onClose={() => setShowCompleteModal(false)} />
+        )}
+      </AnimatePresence>
       {/* ─── Social Profile Header ─── */}
       <div className="mb-10">
         <div className="flex flex-col md:flex-row gap-6 md:gap-8">
@@ -405,12 +443,12 @@ export default function ProfilePage() {
               </button>
               <span className="text-neutral-700">|</span>
               <button className="hover:bg-neutral-800/60 rounded-lg px-2.5 py-1 transition-colors cursor-pointer">
-                <span className="font-bold text-brand-text">12</span>
+                <span className="font-bold text-brand-text">0</span>
                 <span className="text-neutral-400 ml-1">Followers</span>
               </button>
               <span className="text-neutral-700">|</span>
               <button className="hover:bg-neutral-800/60 rounded-lg px-2.5 py-1 transition-colors cursor-pointer">
-                <span className="font-bold text-brand-text">45</span>
+                <span className="font-bold text-brand-text">0</span>
                 <span className="text-neutral-400 ml-1">Following</span>
               </button>
             </div>
@@ -468,30 +506,40 @@ export default function ProfilePage() {
               </div>
             )}
 
-            {/* Compact Reading Challenge — Read-Only */}
-            <div className="bg-neutral-900/60 border border-neutral-800 rounded-xl p-4 max-w-md">
-              <div className="flex items-center justify-between mb-2.5">
-                <div className="flex items-center gap-2">
-                  <Target size={16} className="text-brand-accent" />
-                  <span className="text-xs font-semibold text-brand-text uppercase tracking-wider">2026 Reading Challenge</span>
+            {/* Compact Reading Challenge — Read-Only, or prompt to set goal */}
+            {userProfile.yearlyGoalRaw === null ? (
+              <button
+                onClick={() => setShowSettings(true)}
+                className="flex items-center gap-2.5 text-sm font-medium text-brand-accent border border-brand-accent/40 rounded-xl px-4 py-2.5 hover:bg-brand-accent/10 transition-colors cursor-pointer max-w-md"
+              >
+                <Target size={15} />
+                Set a reading goal
+              </button>
+            ) : (
+              <div className="bg-neutral-900/60 border border-neutral-800 rounded-xl p-4 max-w-md">
+                <div className="flex items-center justify-between mb-2.5">
+                  <div className="flex items-center gap-2">
+                    <Target size={16} className="text-brand-accent" />
+                    <span className="text-xs font-semibold text-brand-text uppercase tracking-wider">2026 Reading Challenge</span>
+                  </div>
+                  <div className="flex items-center gap-1 text-xs text-neutral-400">
+                    <TrendingUp size={12} className="text-brand-accent" />
+                    {challengeStatus}
+                  </div>
                 </div>
-                <div className="flex items-center gap-1 text-xs text-neutral-400">
-                  <TrendingUp size={12} className="text-brand-accent" />
-                  {challengeStatus}
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl font-serif font-bold text-brand-accent">{finishedBooks.length}</span>
+                  <span className="text-neutral-500 text-sm">/</span>
+                  <span className="text-brand-text text-sm font-medium">{readingChallenge.target} books</span>
+                  <div className="flex-1 h-2 bg-neutral-800 rounded-full overflow-hidden ml-2">
+                    <div
+                      className="h-full bg-brand-accent rounded-full transition-all duration-700"
+                      style={{ width: `${challengePercent}%` }}
+                    />
+                  </div>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="text-2xl font-serif font-bold text-brand-accent">{finishedBooks.length}</span>
-                <span className="text-neutral-500 text-sm">/</span>
-                <span className="text-brand-text text-sm font-medium">{readingChallenge.target} books</span>
-                <div className="flex-1 h-2 bg-neutral-800 rounded-full overflow-hidden ml-2">
-                  <div
-                    className="h-full bg-brand-accent rounded-full transition-all duration-700"
-                    style={{ width: `${challengePercent}%` }}
-                  />
-                </div>
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
@@ -503,23 +551,37 @@ export default function ProfilePage() {
           {/* Genre Profile Doughnut */}
           <div className="bg-neutral-900/50 border border-neutral-800 rounded-2xl p-6">
             <h2 className="font-semibold text-brand-text uppercase tracking-wider text-sm mb-6">Genre Profile</h2>
-            <div className="relative w-full aspect-square max-w-[280px] mx-auto mb-6">
-              <Doughnut data={doughnutData} options={doughnutOptions} />
-              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <BookOpen size={24} className="text-brand-accent mb-1" />
-                <span className="text-2xl font-serif font-bold text-brand-text">{finishedBooks.length}</span>
-                <span className="text-xs text-neutral-400">books</span>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-3 justify-center">
-              {genreData.map((g) => (
-                <div key={g.genre} className="flex items-center gap-2 text-xs">
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: GENRE_COLORS[g.genre] || "#6b7280" }} />
-                  <span className="text-neutral-300">{g.genre}</span>
-                  <span className="text-neutral-500">({g.count})</span>
+            {genreData.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+                <div className="w-16 h-16 rounded-full bg-neutral-800/60 flex items-center justify-center">
+                  <BookOpen size={28} className="text-neutral-600" />
                 </div>
-              ))}
-            </div>
+                <p className="font-semibold text-neutral-400 text-sm">No books yet</p>
+                <p className="text-xs text-neutral-600 max-w-[200px] leading-relaxed">
+                  Mark your first book as Finished to see your genre profile.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="relative w-full aspect-square max-w-[280px] mx-auto mb-6">
+                  <Doughnut data={doughnutData} options={doughnutOptions} />
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <BookOpen size={24} className="text-brand-accent mb-1" />
+                    <span className="text-2xl font-serif font-bold text-brand-text">{finishedBooks.length}</span>
+                    <span className="text-xs text-neutral-400">books</span>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-3 justify-center">
+                  {genreData.map((g) => (
+                    <div key={g.genre} className="flex items-center gap-2 text-xs">
+                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: GENRE_COLORS[g.genre] || "#6b7280" }} />
+                      <span className="text-neutral-300">{g.genre}</span>
+                      <span className="text-neutral-500">({g.percentage}%)</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -529,8 +591,21 @@ export default function ProfilePage() {
           <div className="bg-neutral-900/50 border border-neutral-800 rounded-2xl p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="font-semibold text-brand-text uppercase tracking-wider text-sm">Reading Moods — Aggregate Aesthetic</h2>
-              <span className="text-xs text-neutral-500">Based on {reviewsWithRatings.length} reviews. Hover labels for context.</span>
+              {reviewsWithRatings.length > 0 && (
+                <span className="text-xs text-neutral-500">Based on {reviewsWithRatings.length} reviews. Hover labels for context.</span>
+              )}
             </div>
+            {reviewsWithRatings.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+                <div className="w-16 h-16 rounded-full bg-neutral-800/60 flex items-center justify-center">
+                  <Star size={28} className="text-neutral-600" />
+                </div>
+                <p className="font-semibold text-neutral-400 text-sm">No reviews yet</p>
+                <p className="text-xs text-neutral-600 max-w-[220px] leading-relaxed">
+                  Write your first Deep Review to build your reading mood profile.
+                </p>
+              </div>
+            ) : (
             <div className="w-full aspect-square max-w-[400px] mx-auto relative">
               <Radar data={radarData} options={radarOptions} />
               {/* Interactive label overlays */}
@@ -591,6 +666,7 @@ export default function ProfilePage() {
                 );
               })}
             </div>
+            )}
           </div>
 
         </div>
@@ -653,6 +729,7 @@ export default function ProfilePage() {
                     alt={`${post.bookTitle}`}
                     className="post-grid-cover w-full h-full object-cover"
                     style={{ transition: "transform 0.5s ease" }}
+                    referrerPolicy="no-referrer"
                   />
                 ) : (
                   <div className="post-grid-cover w-full h-full bg-gradient-to-br from-neutral-800 to-neutral-900 flex items-center justify-center p-4 text-center"

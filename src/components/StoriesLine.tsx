@@ -44,6 +44,7 @@ export function StoriesLine() {
                     src={latestStory.imageUrl} 
                     alt={author} 
                     className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
                   />
                 </div>
               </div>

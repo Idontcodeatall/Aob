@@ -17,7 +17,7 @@ import { useReviews } from "@/lib/ReviewContext";
 import { supabase } from "@/utils/supabaseClient";
 import { FICTION_TOOLTIP, NONFICTION_TOOLTIP } from "@/lib/analytics";
 import { useDebounce } from "@/hooks/useDebounce";
-import { getHighResCover } from "@/lib/utils";
+import { getHighResCover, resolveBookCover } from "@/lib/utils";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { BookCover } from "@/components/BookCover";
 
@@ -61,6 +61,7 @@ function ReviewForm() {
   const [title, setTitle] = useState(searchParams.get("title") || "");
   const [author, setAuthor] = useState(searchParams.get("author") || "");
   const [coverUrl, setCoverUrl] = useState(searchParams.get("cover") || "");
+  const [genres, setGenres] = useState<string[]>(categoriesParam ? categoriesParam.split(",") : []);
   const [content, setContent] = useState("");
   const [generalRating, setGeneralRating] = useState(0);
   const [autoFilled, setAutoFilled] = useState(fromBrowse);
@@ -151,12 +152,25 @@ function ReviewForm() {
         const data = await res.json();
         if (cancelled) return;
 
-        const items: BookSuggestion[] = (data.items || []).map((item: any) => ({
-          id: item.id,
-          title: item.volumeInfo?.title || "Unknown Title",
-          authors: item.volumeInfo?.authors || ["Unknown Author"],
-          thumbnail: item.volumeInfo?.imageLinks?.thumbnail || "",
-          categories: item.volumeInfo?.categories || [],
+        const items: BookSuggestion[] = await Promise.all((data.items || []).map(async (item: any) => {
+          const title = item.volumeInfo?.title || "Unknown Title";
+          const authors = item.volumeInfo?.authors || ["Unknown Author"];
+          let thumbnail = item.volumeInfo?.imageLinks?.thumbnail || "";
+
+          if (!thumbnail) {
+            const isbns = item.volumeInfo?.industryIdentifiers || [];
+            const isbn13Obj = isbns.find((i: any) => i.type === "ISBN_13");
+            const resolved = await resolveBookCover(isbn13Obj?.identifier, title, authors.join(", "));
+            thumbnail = resolved?.coverUrl || "";
+          }
+
+          return {
+            id: item.id,
+            title,
+            authors,
+            thumbnail,
+            categories: item.volumeInfo?.categories || [],
+          };
         }));
 
         setSuggestions(items);
@@ -190,6 +204,7 @@ function ReviewForm() {
     setTitle(suggestion.title);
     setAuthor(suggestion.authors.join(", "));
     setCoverUrl(suggestion.thumbnail);
+    setGenres(suggestion.categories);
     setIsFiction(detectFiction(suggestion.categories.join(", ")));
     setAutoFilled(true);
     setShowDropdown(false);
@@ -299,6 +314,7 @@ function ReviewForm() {
         title,
         author,
         cover_url: coverUrl || user_image_url || customPhotoPreview || '',
+        genres: genres.length > 0 ? genres : null,
         ...reviewPayload,
       }]);
       if (error) {

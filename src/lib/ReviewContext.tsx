@@ -51,6 +51,10 @@ export type UserProfile = {
   currentlyReadingFav?: { title: string; author: string; coverUrl: string };
   allTimeFav?: { title: string; author: string; coverUrl: string };
   isPublic?: boolean;
+  // DB-sourced fields
+  username?: string;                // raw username column (e.g. "alice1234")
+  yearlyGoalRaw?: number | null;    // null = never set; any number = set (drives empty state)
+  profileComplete?: boolean;        // drives "Complete your profile" banner
 };
 
 export type LibraryStatus = "TBR" | "Reading" | "Finished" | "DNF";
@@ -402,6 +406,7 @@ export function ReviewProvider({ children }: { children: React.ReactNode }) {
               fav_genres: ["Literary Fiction", "Sci-Fi", "Philosophy"],
               personal_link: "",
               is_public: true,
+              profile_complete: false,
             }], { onConflict: "id" });
 
             setUserProfile({
@@ -411,6 +416,9 @@ export function ReviewProvider({ children }: { children: React.ReactNode }) {
               favGenres: ["Literary Fiction", "Sci-Fi", "Philosophy"],
               personalLink: "",
               isPublic: true,
+              username: emailPrefix,
+              yearlyGoalRaw: null,
+              profileComplete: false,
             });
           } else {
             // Row found — map every DB column to the UserProfile shape.
@@ -428,6 +436,9 @@ export function ReviewProvider({ children }: { children: React.ReactNode }) {
               currentlyReadingFav: data.curr_reading_info || undefined,
               allTimeFav: data.all_time_fav_book || undefined,
               isPublic: data.is_public ?? true,
+              username: data.username || undefined,
+              yearlyGoalRaw: data.yearly_chall_goal ?? null,
+              profileComplete: data.profile_complete ?? false,
             });
           }
         } catch (err) {
@@ -480,6 +491,7 @@ export function ReviewProvider({ children }: { children: React.ReactNode }) {
             status: row.status as LibraryStatus,
             totalPages: row.total_pages || 300,
             pagesRead: row.pages_read || (row.status === 'Finished' ? (row.total_pages || 300) : 0),
+            genres: row.genres || undefined,
             rating: row.rating || undefined,
             reviewText: row.review_txt || undefined,
             favoriteQuote: row.favorite_quote || undefined,

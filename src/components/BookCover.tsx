@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getHighResCover } from "@/lib/utils";
 import { Image as ImageIcon } from "lucide-react";
 
 interface BookCoverProps {
@@ -13,19 +12,20 @@ interface BookCoverProps {
 
 /**
  * SmartBookCover Component
- * - Attempts to load the highest resolution (zoom=3)
- * - Cascades down to zoom=2, then zoom=1 on error
- * - Displays a placeholder if all attempts fail
+ * - Displays book cover image
+ * - Upgrades http to https and removes edge=curl
+ * - Displays a placeholder on error
  */
 export function BookCover({ url, alt, className = "", aspectRatio = "aspect-[2/3]" }: BookCoverProps) {
-  const [currentZoom, setCurrentZoom] = useState(3);
   const [src, setSrc] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     if (url) {
-      setSrc(getHighResCover(url, 3));
-      setCurrentZoom(3);
+      const cleanUrl = url
+        .replace(/^http:\/\//i, 'https://')
+        .replace("&edge=curl", "");
+      setSrc(cleanUrl);
       setFailed(false);
     } else {
       setFailed(true);
@@ -33,15 +33,7 @@ export function BookCover({ url, alt, className = "", aspectRatio = "aspect-[2/3
   }, [url]);
 
   const handleError = () => {
-    if (currentZoom === 3) {
-      setCurrentZoom(2);
-      setSrc(getHighResCover(url, 2));
-    } else if (currentZoom === 2) {
-      setCurrentZoom(1);
-      setSrc(getHighResCover(url, 1));
-    } else {
-      setFailed(true);
-    }
+    setFailed(true);
   };
 
   if (!url || failed) {
@@ -62,9 +54,10 @@ export function BookCover({ url, alt, className = "", aspectRatio = "aspect-[2/3
       {src && (
         <img
           src={src}
-          alt={alt}
+          alt={alt || "Book Cover"}
           onError={handleError}
           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+          referrerPolicy="no-referrer"
           loading="lazy"
         />
       )}

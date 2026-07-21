@@ -14,8 +14,9 @@ import {
 } from "lucide-react";
 import { useReviews } from "@/lib/ReviewContext";
 import { useDebounce } from "@/hooks/useDebounce";
-import { getHighResCover } from "@/lib/utils";
+import { getHighResCover, resolveBookCover } from "@/lib/utils";
 import { supabase } from "@/utils/supabaseClient";
+import { CompleteProfileModal } from "@/components/CompleteProfileModal";
 
 type BookResult = {
   id: string;
@@ -60,11 +61,25 @@ function BookSearchField({
         if (!res.ok) return;
         const data = await res.json();
         if (cancelled) return;
-        const items: BookResult[] = (data.items || []).map((item: any) => ({
-          id: item.id,
-          title: item.volumeInfo?.title || "Unknown",
-          authors: item.volumeInfo?.authors || ["Unknown"],
-          thumbnail: item.volumeInfo?.imageLinks?.thumbnail || "",
+        const items: BookResult[] = await Promise.all((data.items || []).map(async (item: any) => {
+          const title = item.volumeInfo?.title || "Unknown";
+          const authorArray = item.volumeInfo?.authors || ["Unknown"];
+          const authorString = authorArray.join(", ");
+          let thumbnail = item.volumeInfo?.imageLinks?.thumbnail || "";
+          
+          if (!thumbnail) {
+            const isbns = item.volumeInfo?.industryIdentifiers || [];
+            const isbn13Obj = isbns.find((i: any) => i.type === "ISBN_13");
+            const resolved = await resolveBookCover(isbn13Obj?.identifier, title, authorString);
+            thumbnail = resolved.coverUrl || "";
+          }
+          
+          return {
+            id: item.id,
+            title,
+            authors: authorArray,
+            thumbnail,
+          };
         }));
         setResults(items);
         setShowDropdown(items.length > 0);
@@ -187,6 +202,7 @@ export function SettingsModal() {
   const [currentlyReading, setCurrentlyReading] = useState(userProfile.currentlyReadingFav);
   const [allTimeFav, setAllTimeFav] = useState(userProfile.allTimeFav);
   const [isPublic, setIsPublic] = useState(userProfile.isPublic ?? true);
+  const [showImportModal, setShowImportModal] = useState(false);
   
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -445,6 +461,23 @@ export function SettingsModal() {
             {/* Divider */}
             <div className="border-t border-neutral-800 pt-2" />
 
+            {/* Import Goodreads */}
+            <div>
+              <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-2">
+                Goodreads Data
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowImportModal(true)}
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl border border-neutral-700 bg-neutral-800 text-sm font-medium text-brand-text hover:bg-neutral-700 hover:text-white transition-colors cursor-pointer"
+              >
+                Import Goodreads Library
+              </button>
+            </div>
+
+            {/* Divider */}
+            <div className="border-t border-neutral-800 pt-2" />
+
             {/* Public Profile Toggle */}
             <div className="flex items-center justify-between">
               <div>
@@ -515,6 +548,15 @@ export function SettingsModal() {
           </div>
         </motion.div>
       </motion.div>
+
+      <AnimatePresence>
+        {showImportModal && (
+          <CompleteProfileModal
+            startAtStep={2}
+            onClose={() => setShowImportModal(false)}
+          />
+        )}
+      </AnimatePresence>
     </AnimatePresence>
   );
 }

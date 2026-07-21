@@ -31,7 +31,7 @@ export function CurrentlyReading() {
       <div className="flex gap-4 items-center">
         <div className="w-12 h-16 bg-neutral-800 rounded shadow-md flex items-center justify-center shrink-0 overflow-hidden relative">
           {book.thumbnail ? (
-            <img src={book.thumbnail} alt={book.title} className="w-full h-full object-cover" />
+            <img src={book.thumbnail} alt={book.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
           ) : (
             <BookOpen size={20} className="text-neutral-600" />
           )}

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useReviews, LibraryStatus } from "@/lib/ReviewContext";
 import { getGenreFrequency, getAggregateRadar } from "@/lib/analytics";
 import { motion, AnimatePresence } from "framer-motion";
-import { getHighResCover } from "@/lib/utils";
+import { getHighResCover, resolveBookCover } from "@/lib/utils";
 import { BookCover } from "@/components/BookCover";
 import { supabase } from "@/utils/supabaseClient";
 import ReactMarkdown from "react-markdown";
@@ -64,7 +64,7 @@ export default function BrowsePage() {
 
   // Analytics for AI Context
   const finishedBooks = useMemo(() => library.filter((b) => b.status === "Finished"), [library]);
-  const reviewsWithRatings = useMemo(() => posts.filter((p) => p.type === "DeepReview" && p.ratings), [posts]);
+  const reviewsWithRatings = useMemo(() => finishedBooks.filter(b => b.rPacing !== undefined || b.rCharPersona !== undefined || b.rPlotInsight !== undefined || b.rProse !== undefined || b.rVibe !== undefined), [finishedBooks]);
   const genreData = useMemo(() => getGenreFrequency(finishedBooks), [finishedBooks]);
   const aggregateRadar = useMemo(() => getAggregateRadar(reviewsWithRatings), [reviewsWithRatings]);
 
@@ -307,7 +307,29 @@ export default function BrowsePage() {
     try {
       const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=intitle:${encodeURIComponent(query).replace(/%20/g, "+")}&printType=books&orderBy=relevance&maxResults=20&key=${process.env.NEXT_PUBLIC_GOOGLE_BOOKS_API_KEY || ""}`);
       const data = await res.json();
-      setSearchResults(data.items || []);
+      
+      const items = await Promise.all((data.items || []).map(async (item: any) => {
+        let thumbnail = item.volumeInfo?.imageLinks?.thumbnail;
+        if (!thumbnail) {
+          const isbns = item.volumeInfo?.industryIdentifiers || [];
+          const isbn13Obj = isbns.find((i: any) => i.type === "ISBN_13");
+          const resolved = await resolveBookCover(
+            isbn13Obj?.identifier,
+            item.volumeInfo?.title,
+            item.volumeInfo?.authors?.join(", ")
+          );
+          if (resolved.coverUrl) {
+            item.volumeInfo = item.volumeInfo || {};
+            item.volumeInfo.imageLinks = item.volumeInfo.imageLinks || {};
+            item.volumeInfo.imageLinks.thumbnail = resolved.coverUrl;
+            if (resolved.categories.length > 0) {
+              item.volumeInfo.categories = resolved.categories;
+            }
+          }
+        }
+        return item;
+      }));
+      setSearchResults(items);
     } catch (error) {
       console.error("Error searching books", error);
     } finally {
@@ -348,6 +370,7 @@ export default function BrowsePage() {
         author,
         cover_url: thumbnail,
         status,
+        genres: selectedBook.volumeInfo.categories || null,
       }]);
       if (error) {
         console.error('CRITICAL SUPABASE INSERT ERROR:', error.message, error.details, error.hint);
