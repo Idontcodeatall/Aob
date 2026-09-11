@@ -1,14 +1,15 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Send, BookOpen, Quote, X, Search, Loader2 } from "lucide-react";
+import { ArrowLeft, Send, BookOpen, X, Search, Loader2, FileText } from "lucide-react";
 import { MediaUploader } from "@/components/MediaUploader";
 import { useReviews } from "@/lib/ReviewContext";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { useDebounce } from "@/hooks/useDebounce";
 import { BookCover } from "@/components/BookCover";
+import { supabase } from "@/utils/supabaseClient";
 
 interface BookSuggestion {
   id: string;
@@ -19,14 +20,18 @@ interface BookSuggestion {
 
 export default function NewPostPage() {
   const router = useRouter();
-  const { addPost } = useReviews();
+  const { session, refreshFeed } = useReviews();
 
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [caption, setCaption] = useState("");
-  const [bookQuote, setBookQuote] = useState("");
   const [bookTitle, setBookTitle] = useState("");
   const [bookAuthor, setBookAuthor] = useState("");
   const [isPublishing, setIsPublishing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Controls whether we show the compose form (true once image chosen or skipped)
+  const [inComposeStep, setInComposeStep] = useState(false);
 
   // Search States
   const [suggestions, setSuggestions] = useState<BookSuggestion[]>([]);
@@ -73,29 +78,90 @@ export default function NewPostPage() {
     setShowDropdown(false);
   };
 
-  const handlePublish = () => {
-    if (!imageDataUrl) return;
+  const handleImageSelect = (dataUrl: string) => {
+    setImageDataUrl(dataUrl);
+    setInComposeStep(true);
+  };
+
+  const handleFileSelect = (file: File) => {
+    setImageFile(file);
+  };
+
+  const handleSkipToText = () => {
+    setImageDataUrl(null);
+    setImageFile(null);
+    setInComposeStep(true);
+  };
+
+  const stripHtml = (html: string) => html.replace(/<[^>]*>/g, "").trim();
+
+  const handlePublish = async () => {
+    if (!session?.user?.id) {
+      setError("You must be logged in to post.");
+      return;
+    }
+
+    const captionHasContent = stripHtml(caption).length > 0;
+    if (!imageDataUrl && !captionHasContent) {
+      setError("Add a photo or write something before publishing.");
+      return;
+    }
 
     setIsPublishing(true);
+    setError(null);
 
-    // Small delay for UX feedback
-    setTimeout(() => {
-      addPost({
-        id: Date.now().toString(),
-        type: "Visual",
-        author: "Local User",
-        authorInitials: "LU",
-        timeAgo: "Just now",
-        bookTitle: bookTitle || "Untitled",
-        bookAuthor: bookAuthor || "",
-        content: caption, // Rich text HTML
-        imageUrl: imageDataUrl,
-        overlayQuote: bookQuote || undefined,
-        likeCount: 0,
-        generalRating: undefined,
-      });
-      router.push("/");
-    }, 400);
+    let image_url: string | null = null;
+
+    // Upload image to post_images bucket if one was selected
+    if (imageFile) {
+      try {
+        const ext = imageFile.name.split(".").pop() || "jpg";
+        const fileName = `${session.user.id}/${Date.now()}.${ext}`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from("post_images")
+          .upload(fileName, imageFile, { contentType: imageFile.type });
+
+        if (uploadError) {
+          console.error("Storage upload error:", uploadError.message);
+          setError("Image upload failed. Please try again.");
+          setIsPublishing(false);
+          return;
+        }
+
+        const { data: { publicUrl } } = supabase.storage
+          .from("post_images")
+          .getPublicUrl(fileName);
+        image_url = publicUrl;
+      } catch (err) {
+        console.error("Unexpected upload error:", err);
+        setError("Image upload failed. Please try again.");
+        setIsPublishing(false);
+        return;
+      }
+    }
+
+    const post_type = image_url ? "photo" : "text";
+
+    const { error: insertError } = await supabase.from("posts").insert([{
+      user_id: session.user.id,
+      caption: captionHasContent ? caption : null,
+      image_url,
+      post_type,
+      book_title: bookTitle.trim() || null,
+      book_author: bookAuthor.trim() || null,
+      likes_count: 0,
+      comments_count: 0,
+    }]);
+
+    if (insertError) {
+      console.error("Post insert error:", insertError.message);
+      setError("Failed to publish. Please try again.");
+      setIsPublishing(false);
+      return;
+    }
+
+    refreshFeed();
+    router.push("/");
   };
 
   return (
@@ -103,42 +169,60 @@ export default function NewPostPage() {
       {/* Header */}
       <div className="flex items-center gap-4 mb-8">
         <button
-          onClick={() => (imageDataUrl ? setImageDataUrl(null) : router.back())}
+          onClick={() => {
+            if (inComposeStep) {
+              setInComposeStep(false);
+              setImageDataUrl(null);
+              setImageFile(null);
+            } else {
+              router.back();
+            }
+          }}
           className="p-2 rounded-lg hover:bg-neutral-800 text-neutral-400 hover:text-brand-text transition-colors"
         >
           <ArrowLeft size={20} />
         </button>
         <div>
-          <h1 className="font-serif text-2xl md:text-3xl font-bold text-brand-text">
-            New Post
-          </h1>
+          <h1 className="font-serif text-2xl md:text-3xl font-bold text-brand-text">New Post</h1>
           <p className="text-sm text-neutral-500 mt-0.5">
-            {imageDataUrl
-              ? "Refine your post and share"
-              : "Choose an image to get started"}
+            {inComposeStep ? "Refine your post and share" : "Choose an image or write a text post"}
           </p>
         </div>
       </div>
 
       <AnimatePresence mode="wait">
-        {/* ─── STEP 1: Upload ─── */}
-        {!imageDataUrl && (
+        {/* ─── STEP 1: Upload / Choose ─── */}
+        {!inComposeStep && (
           <motion.div
             key="upload"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.25 }}
+            className="space-y-6"
           >
             <MediaUploader
-              onImageSelect={setImageDataUrl}
+              onImageSelect={handleImageSelect}
+              onFileSelect={handleFileSelect}
               aspectHint="4:5 portrait"
             />
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-px bg-neutral-800" />
+              <span className="text-xs text-neutral-600 uppercase tracking-wider">or</span>
+              <div className="flex-1 h-px bg-neutral-800" />
+            </div>
+            <button
+              onClick={handleSkipToText}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-neutral-700 hover:border-neutral-500 bg-neutral-900/50 hover:bg-neutral-900 text-neutral-400 hover:text-brand-text transition-all text-sm font-medium"
+            >
+              <FileText size={16} />
+              Write a text post
+            </button>
           </motion.div>
         )}
 
         {/* ─── STEP 2: Compose ─── */}
-        {imageDataUrl && (
+        {inComposeStep && (
           <motion.div
             key="compose"
             initial={{ opacity: 0, y: 10 }}
@@ -147,59 +231,44 @@ export default function NewPostPage() {
             transition={{ duration: 0.3 }}
             className="space-y-8"
           >
-            {/* Image Preview — 4:5 ratio */}
-            <div className="w-full max-w-md mx-auto aspect-[4/5] rounded-3xl overflow-hidden bg-neutral-900 shadow-2xl ring-1 ring-neutral-800 relative group">
-              <img
-                src={imageDataUrl}
-                alt="Post preview"
-                className="w-full h-full object-cover"
-              />
-              <button 
-                onClick={() => setImageDataUrl(null)}
-                className="absolute top-4 right-4 p-2 bg-black/50 backdrop-blur-md rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <X size={16} />
-              </button>
-            </div>
+            {/* Image Preview — only shown if an image was selected */}
+            {imageDataUrl && (
+              <div className="w-full max-w-md mx-auto aspect-[4/5] rounded-3xl overflow-hidden bg-neutral-900 shadow-2xl ring-1 ring-neutral-800 relative group">
+                <img src={imageDataUrl} alt="Post preview" className="w-full h-full object-cover" />
+                <button
+                  onClick={() => { setImageDataUrl(null); setImageFile(null); }}
+                  className="absolute top-4 right-4 p-2 bg-black/50 backdrop-blur-md rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            )}
 
-            {/* Compose Fields */}
             <div className="max-w-md mx-auto space-y-8">
-              {/* Caption — uses RichTextEditor */}
+              {/* Caption */}
               <section className="space-y-3">
                 <label className="block text-sm font-semibold text-brand-text uppercase tracking-wider">
-                  Caption <span className="text-[10px] text-neutral-600 ml-2 font-normal lowercase tracking-normal">(optional)</span>
+                  Caption{" "}
+                  <span className="text-[10px] text-neutral-600 ml-2 font-normal lowercase tracking-normal">
+                    {imageDataUrl ? "(optional)" : "(required for text posts)"}
+                  </span>
                 </label>
                 <div className="p-1 bg-neutral-900 border border-neutral-800 rounded-2xl relative">
-                   <RichTextEditor 
-                      content={caption}
-                      onChange={setCaption}
-                      placeholder="Share the story behind this photo..."
-                   />
-                </div>
-              </section>
-
-              {/* Book Quote — maroon bracket accent */}
-              <section className="space-y-3">
-                <label className="flex items-center gap-2 text-sm font-semibold text-brand-text uppercase tracking-wider">
-                  <Quote size={14} className="text-brand-accent" />
-                  Optional Book Quote
-                </label>
-                <div className="relative">
-                  <div className="absolute left-0 top-3 bottom-3 w-[3px] rounded-full bg-brand-accent/70 shadow-[0_0_8px_rgba(var(--brand-accent-rgb),0.4)]" />
-                  <textarea
-                    value={bookQuote}
-                    onChange={(e) => setBookQuote(e.target.value)}
-                    placeholder={`"A specific line to feature over the cover..."`}
-                    className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-5 pr-4 py-4 text-brand-text italic leading-relaxed focus:outline-none focus:border-brand-accent/50 focus:ring-1 focus:ring-brand-accent/20 transition-all resize-none min-h-[100px] placeholder:text-neutral-600"
+                  <RichTextEditor
+                    content={caption}
+                    onChange={setCaption}
+                    placeholder="Share the story behind this post..."
                   />
                 </div>
-                <p className="text-[10px] text-neutral-500 italic">This quote will appear in maroon brackets on the feed.</p>
               </section>
 
-              {/* Book Attribution with Search */}
+              {/* Book Connection */}
               <section className="space-y-4">
                 <h2 className="text-sm font-semibold text-brand-text uppercase tracking-wider border-b border-neutral-800 pb-2">
-                  Book Connection <span className="text-[10px] text-neutral-600 ml-2 font-normal lowercase tracking-normal">(optional)</span>
+                  Book Connection{" "}
+                  <span className="text-[10px] text-neutral-600 ml-2 font-normal lowercase tracking-normal">
+                    (optional)
+                  </span>
                 </h2>
                 <div className="space-y-4">
                   <div className="relative">
@@ -221,7 +290,6 @@ export default function NewPostPage() {
                       </div>
                     </div>
 
-                    {/* Auto-suggestions Dropdown */}
                     <AnimatePresence>
                       {showDropdown && (
                         <motion.div
@@ -251,9 +319,7 @@ export default function NewPostPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-neutral-400 mb-1.5">
-                      Author
-                    </label>
+                    <label className="block text-xs font-medium text-neutral-400 mb-1.5">Author</label>
                     <input
                       type="text"
                       value={bookAuthor}
@@ -265,21 +331,23 @@ export default function NewPostPage() {
                 </div>
               </section>
 
+              {/* Error */}
+              {error && (
+                <p className="text-sm text-red-400 bg-red-950/20 border border-red-900/30 rounded-xl px-4 py-2.5">
+                  {error}
+                </p>
+              )}
+
               {/* Publish Button */}
               <motion.button
                 onClick={handlePublish}
-                disabled={!imageDataUrl || isPublishing}
+                disabled={isPublishing}
                 whileTap={{ scale: 0.97 }}
-                className={`
-                  w-full py-4 rounded-xl font-bold text-white
-                  flex items-center justify-center gap-2.5 shadow-xl
-                  transition-all duration-300
-                  ${
-                    imageDataUrl && !isPublishing
-                      ? "bg-brand-accent hover:bg-brand-accent/90 shadow-brand-accent/30"
-                      : "bg-neutral-800 text-neutral-500 cursor-not-allowed shadow-none"
-                  }
-                `}
+                className={`w-full py-4 rounded-xl font-bold text-white flex items-center justify-center gap-2.5 shadow-xl transition-all duration-300 ${
+                  isPublishing
+                    ? "bg-neutral-800 text-neutral-500 cursor-not-allowed shadow-none"
+                    : "bg-brand-accent hover:bg-brand-accent/90 shadow-brand-accent/30"
+                }`}
               >
                 {isPublishing ? (
                   <>

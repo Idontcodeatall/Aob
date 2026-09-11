@@ -49,7 +49,7 @@ type BookSuggestion = {
 function ReviewForm() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { addPost, addToLibrary, updateLibraryItem, library, session } = useReviews();
+  const { refreshFeed, addToLibrary, updateLibraryItem, library, session } = useReviews();
   const categoriesParam = searchParams.get("categories") || "";
   const fromBrowse = !!(searchParams.get("title"));
 
@@ -254,25 +254,7 @@ function ReviewForm() {
       }
     }
 
-    // 1. Add to local posts feed
-    addPost({
-      id: Date.now().toString(),
-      type: "DeepReview",
-      author: "Local User",
-      authorInitials: "LU",
-      timeAgo: "Just now",
-      bookTitle: title,
-      bookAuthor: author,
-      content,
-      coverUrl: coverUrl,
-      customCoverUrl: user_image_url || customPhotoPreview || undefined,
-      isFiction,
-      generalRating,
-      ratings: { ...ratings },
-      overlayQuote: favoriteQuote || undefined
-    });
-
-    // 2. Find the matching library entry (by title match as fallback)
+    // 1. Find the matching library entry (by title match as fallback)
     const existingItem = library.find(
       (i) => i.title.toLowerCase() === title.toLowerCase()
     );
@@ -293,7 +275,11 @@ function ReviewForm() {
       updated_at: new Date().toISOString(),
     };
 
-    // 3. Supabase UPDATE if user is logged in and we know the book_id
+    let librarySaveSucceeded = false;
+    // Generate a stable fallback ID once — used for both library and posts insert
+    const fallbackBookId = `review-${Date.now()}`;
+
+    // 2. Supabase UPDATE if user is logged in and we know the book_id
     if (session?.user?.id && bookId) {
       const { error } = await supabase
         .from('library')
@@ -305,12 +291,13 @@ function ReviewForm() {
         console.error('CRITICAL SUPABASE UPDATE ERROR:', error.message, error.details, error.hint);
       } else {
         console.log('[Supabase] Review saved successfully for book_id:', bookId);
+        librarySaveSucceeded = true;
       }
     } else if (session?.user?.id && !bookId) {
       // Book not in library yet — INSERT it as Finished with review data
       const { error } = await supabase.from('library').insert([{
         user_id: session.user.id,
-        book_id: `review-${Date.now()}`,
+        book_id: fallbackBookId,
         title,
         author,
         cover_url: coverUrl || user_image_url || customPhotoPreview || '',
@@ -321,9 +308,33 @@ function ReviewForm() {
         console.error('CRITICAL SUPABASE INSERT ERROR:', error.message, error.details, error.hint);
       } else {
         console.log('[Supabase] New reviewed book inserted successfully.');
+        librarySaveSucceeded = true;
       }
     } else {
       console.warn('[handlePublish] No session — review saved to local context only.');
+    }
+
+    // 3. Auto-insert a review post into the posts table
+    if (session?.user?.id && librarySaveSucceeded) {
+      const post_image_url = user_image_url || coverUrl || null;
+      const { error: postInsertError } = await supabase.from('posts').insert([{
+        user_id: session.user.id,
+        post_type: 'review',
+        book_id: bookId ?? fallbackBookId,
+        book_title: title,
+        book_author: author,
+        image_url: post_image_url,
+        caption: content || null,
+        likes_count: 0,
+        comments_count: 0,
+      }]);
+
+      if (postInsertError) {
+        console.error('[Supabase] Failed to auto-insert review post:', postInsertError.message);
+      } else {
+        console.log('[Supabase] Review post auto-inserted into feed.');
+        refreshFeed();
+      }
     }
 
     // 4. Optimistic local state update
@@ -358,6 +369,7 @@ function ReviewForm() {
     setIsPublishing(false);
     router.push("/");
   };
+
 
   const labels = isFiction
     ? ["Pacing", "Characters", "Plot", "Prose", "Vibe"]

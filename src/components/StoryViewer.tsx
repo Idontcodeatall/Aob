@@ -3,10 +3,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
-import { Story } from "@/lib/ReviewContext";
+import { DbStory } from "@/lib/ReviewContext";
 
 interface StoryViewerProps {
-  stories: Story[];
+  stories: DbStory[];
   onClose: () => void;
 }
 
@@ -74,12 +74,20 @@ export function StoryViewer({ stories, onClose }: StoryViewerProps) {
       <div className="absolute top-8 left-4 right-4 z-[120] flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-neutral-800 border border-white/20 overflow-hidden flex items-center justify-center">
-             <div className="text-white font-bold text-lg">{currentStory.author.charAt(0)}</div>
+            {currentStory.profiles?.avatar_url ? (
+              <img src={currentStory.profiles.avatar_url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+            ) : (
+              <div className="text-white font-bold text-lg">
+                {(currentStory.profiles?.username ?? "U").charAt(0).toUpperCase()}
+              </div>
+            )}
           </div>
           <div>
-            <div className="text-white font-bold text-sm shadow-sm">{currentStory.author}</div>
+            <div className="text-white font-bold text-sm shadow-sm">
+              {currentStory.profiles?.username ?? "user"}
+            </div>
             <div className="text-white/60 text-xs shadow-sm">
-              {new Date(currentStory.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              {new Date(currentStory.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
             </div>
           </div>
         </div>
@@ -99,7 +107,7 @@ export function StoryViewer({ stories, onClose }: StoryViewerProps) {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
-            src={currentStory.imageUrl}
+            src={currentStory.image_url}
             alt="Story"
             className="w-full h-full object-cover"
           />

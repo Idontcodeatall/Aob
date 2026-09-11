@@ -1,8 +1,8 @@
-"use client";
+﻿"use client";
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { useReviews, LibraryStatus, Post, LibraryItem } from "@/lib/ReviewContext";
+import { useReviews, LibraryStatus, LibraryItem } from "@/lib/ReviewContext";
 import { supabase } from "@/utils/supabaseClient";
 import { getHighResCover } from "@/lib/utils";
 import { BookCover } from "@/components/BookCover";
@@ -164,13 +164,11 @@ function BookCard({
   item,
   onUpdateProgress,
   onRemove,
-  review,
   onClick,
 }: {
   item: LibraryItem;
   onUpdateProgress: (id: string) => void;
   onRemove: (id: string) => void;
-  review?: Post | null;
   onClick?: () => void;
 }) {
   const router = useRouter();
@@ -180,17 +178,25 @@ function BookCard({
   );
   const isReading = item.status === "Reading";
   const isFinished = item.status === "Finished";
-  const hasReview = review && review.ratings;
 
-  // Mini radar for reviews
+  // Determine if this book has review sub-ratings
+  const hasReview = isFinished &&
+    item.rPacing !== undefined &&
+    item.rVibe !== undefined &&
+    item.rProse !== undefined;
+
+  // Mini radar from LibraryItem fields
   const miniRadarData = hasReview ? {
-    labels: review.isFiction
-      ? ["Pacing", "Characters", "Plot", "Prose", "Vibe"]
-      : ["Pacing", "Persona", "Insight", "Prose", "Vibe"],
+    labels: item.bookType === "Non-Fiction"
+      ? ["Pacing", "Persona", "Insight", "Prose", "Vibe"]
+      : ["Pacing", "Characters", "Plot", "Prose", "Vibe"],
     datasets: [{
       data: [
-        review.ratings!.pacing, review.ratings!.metricTwo, review.ratings!.metricThree,
-        review.ratings!.prose, review.ratings!.vibe,
+        item.rPacing ?? 3,
+        item.rCharPersona ?? 3,
+        item.rPlotInsight ?? 3,
+        item.rProse ?? 3,
+        item.rVibe ?? 3,
       ],
       backgroundColor: "rgba(128, 0, 0, 0.7)",
       borderColor: "#FFFFFF",
@@ -214,8 +220,8 @@ function BookCard({
     maintainAspectRatio: false,
   };
 
-  const hasCustomCover = review?.customCoverUrl || item.userImageUrl;
-  const coverUrl = review?.customCoverUrl || item.userImageUrl || review?.coverUrl || item.thumbnail;
+  // Always use cover_url (item.thumbnail) â€” never userImageUrl â€” in the library grid
+  const coverUrl = item.thumbnail;
 
   return (
     <motion.div
@@ -227,24 +233,14 @@ function BookCard({
       className={`group flex flex-col ${onClick ? "cursor-pointer" : ""}`}
       onClick={onClick}
     >
-      {/* Cover container — 2:3 aspect ratio */}
+      {/* Cover container â€” 2:3 aspect ratio */}
       <div className="relative w-full aspect-[2/3] rounded-xl overflow-hidden bg-neutral-800/80 shadow-lg group-hover:shadow-2xl group-hover:shadow-brand-accent/10 transition-all duration-500">
-        {/* Cover image via SmartBookCover */}
-        {hasCustomCover ? (
-          <img 
-            src={coverUrl}
-            alt={item.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-            loading="lazy"
-            referrerPolicy="no-referrer"
-          />
-        ) : (
-          <BookCover 
-            url={coverUrl} 
-            alt={item.title} 
-            className="group-hover:scale-105 transition-transform duration-700" 
-          />
-        )}
+        {/* Cover image â€” always cover_url */}
+        <BookCover 
+          url={coverUrl} 
+          alt={item.title} 
+          className="group-hover:scale-105 transition-transform duration-700" 
+        />
 
         {/* Floating stats on cover (Reading items only) */}
         {isReading && (
@@ -252,13 +248,13 @@ function BookCard({
             {/* Dark gradient bed for readability */}
             <div className="bg-gradient-to-t from-black/80 via-black/40 to-transparent pt-8 pb-2 px-2.5 flex justify-end">
               <span className="font-serif text-[11px] text-white/90 tracking-wide drop-shadow-lg">
-                {progress}% · {item.pagesRead}/{item.totalPages}p
+                {progress}% Â· {item.pagesRead}/{item.totalPages}p
               </span>
             </div>
           </div>
         )}
 
-        {/* Glowing progress bar — sits at the absolute bottom edge of the cover */}
+        {/* Glowing progress bar â€” sits at the absolute bottom edge of the cover */}
         {isReading && (
           <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-neutral-900/60">
             <motion.div
@@ -281,9 +277,9 @@ function BookCard({
           </div>
         )}
 
-        {/* Hover overlay — type-aware for Finished */}
+        {/* Hover overlay â€” type-aware for Finished */}
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/60 transition-all duration-300 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100">
-          {/* Finished with review → Radar + Stars */}
+          {/* Finished with review â†’ Radar + Stars */}
           {isFinished && hasReview && miniRadarData ? (
             <>
               <div className="flex items-center gap-0.5 mb-2">
@@ -291,8 +287,8 @@ function BookCard({
                   <Star
                     key={s}
                     size={12}
-                    fill={s <= (review.generalRating || 0) ? "currentColor" : "none"}
-                    className={s <= (review.generalRating || 0) ? "text-brand-accent" : "text-neutral-600"}
+                    fill={s <= (item.rating || 0) ? "currentColor" : "none"}
+                    className={s <= (item.rating || 0) ? "text-brand-accent" : "text-neutral-600"}
                   />
                 ))}
               </div>
@@ -366,75 +362,42 @@ const modalRadarOptions = {
 };
 
 export default function LibraryPage() {
-  const { library, updateLibraryProgress, removeFromLibrary, updateLibraryItem, posts, session } = useReviews();
+  const { library, updateLibraryProgress, removeFromLibrary, updateLibraryItem, session } = useReviews();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<LibraryStatus>("Reading");
   const [progressModal, setProgressModal] = useState<string | null>(null);
-  const [selectedReviewBook, setSelectedReviewBook] = useState<{ item: LibraryItem; review: Post | null } | null>(null);
+  const [selectedReviewBook, setSelectedReviewBook] = useState<LibraryItem | null>(null);
 
   const handleRemoveBook = async (bookId: string) => {
-    // Optimistically remove from UI immediately
     removeFromLibrary(bookId);
-
-    if (!session?.user?.id) {
-      console.warn('[handleRemoveBook] No session — removed from local context only.');
-      return;
-    }
-
+    if (!session?.user?.id) return;
     const { error } = await supabase
-      .from('library')
+      .from("library")
       .delete()
-      .eq('book_id', bookId)
-      .eq('user_id', session.user.id);
-
-    if (error) {
-      console.error('CRITICAL SUPABASE DELETE ERROR:', error.message, error.details, error.hint);
-    } else {
-      console.log('[Supabase] Book removed successfully. book_id:', bookId);
-    }
+      .eq("book_id", bookId)
+      .eq("user_id", session.user.id);
+    if (error) console.error("CRITICAL SUPABASE DELETE ERROR:", error.message);
+    else console.log("[Supabase] Book removed successfully. book_id:", bookId);
   };
 
   const handleChangeStatus = async (bookId: string, newStatus: LibraryStatus) => {
-    // Optimistic local update
     updateLibraryItem(bookId, { status: newStatus });
-
-    // Update local modal state to prevent orphan visual state
-    if (selectedReviewBook && selectedReviewBook.item.id === bookId) {
-      setSelectedReviewBook({
-        ...selectedReviewBook,
-        item: { ...selectedReviewBook.item, status: newStatus }
-      });
+    if (selectedReviewBook && selectedReviewBook.id === bookId) {
+      setSelectedReviewBook({ ...selectedReviewBook, status: newStatus });
     }
-
-    if (!session?.user?.id) {
-      console.warn('[handleChangeStatus] No session — updated local context only.');
-      return;
-    }
-
+    if (!session?.user?.id) return;
     const { error } = await supabase
-      .from('library')
+      .from("library")
       .update({ status: newStatus, updated_at: new Date().toISOString() })
-      .eq('book_id', bookId)
-      .eq('user_id', session.user.id);
-
-    if (error) {
-      console.error('CRITICAL SUPABASE UPDATE ERROR:', error.message, error.details, error.hint);
-    } else {
-      console.log('[Supabase] Status updated to', newStatus, 'for book_id:', bookId);
-    }
+      .eq("book_id", bookId)
+      .eq("user_id", session.user.id);
+    if (error) console.error("CRITICAL SUPABASE UPDATE ERROR:", error.message);
+    else console.log("[Supabase] Status updated to", newStatus, "for book_id:", bookId);
   };
 
   const tabs: LibraryStatus[] = ["TBR", "Reading", "Finished", "DNF"];
   const displayItems = library.filter((item) => item.status === activeTab);
-  const modalBook = progressModal
-    ? library.find((i) => i.id === progressModal)
-    : null;
-
-  // Build a map of book title → review for quick lookup
-  const reviewsByTitle = new Map<string, Post>();
-  posts.filter((p) => p.type === "DeepReview" && p.ratings).forEach((p) => {
-    reviewsByTitle.set(p.bookTitle, p);
-  });
+  const modalBook = progressModal ? library.find((i) => i.id === progressModal) : null;
 
   return (
     <div className="flex-1 w-full max-w-6xl mx-auto px-4 md:px-8 pt-6 pb-12 min-h-screen">
@@ -447,8 +410,7 @@ export default function LibraryPage() {
           </h1>
         </div>
         <p className="text-sm text-neutral-500 ml-[36px]">
-          {library.length} book{library.length !== 1 ? "s" : ""} in your
-          collection
+          {library.length} book{library.length !== 1 ? "s" : ""} in your collection
         </p>
       </div>
 
@@ -464,39 +426,18 @@ export default function LibraryPage() {
                 onClick={() => setActiveTab(tab)}
                 className="relative pb-3 group"
               >
-                <span
-                  className={`text-sm font-medium transition-colors duration-200 ${
-                    isActive
-                      ? "text-brand-text"
-                      : "text-neutral-500 group-hover:text-neutral-300"
-                  }`}
-                >
+                <span className={`text-sm font-medium transition-colors duration-200 ${isActive ? "text-brand-text" : "text-neutral-500 group-hover:text-neutral-300"}`}>
                   {tab}
                 </span>
-                <span
-                  className={`ml-1.5 text-[11px] tabular-nums transition-colors duration-200 ${
-                    isActive
-                      ? "text-neutral-400"
-                      : "text-neutral-600 group-hover:text-neutral-500"
-                  }`}
-                >
+                <span className={`ml-1.5 text-[11px] tabular-nums transition-colors duration-200 ${isActive ? "text-neutral-400" : "text-neutral-600 group-hover:text-neutral-500"}`}>
                   {count}
                 </span>
-                {/* Active underline */}
                 {isActive && (
                   <motion.div
                     layoutId="library-tab-underline"
                     className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full"
-                    style={{
-                      background:
-                        "linear-gradient(90deg, #800000, #a52a2a)",
-                      boxShadow: "0 1px 8px rgba(128, 0, 0, 0.4)",
-                    }}
-                    transition={{
-                      type: "spring",
-                      stiffness: 380,
-                      damping: 30,
-                    }}
+                    style={{ background: "linear-gradient(90deg, #800000, #a52a2a)", boxShadow: "0 1px 8px rgba(128, 0, 0, 0.4)" }}
+                    transition={{ type: "spring", stiffness: 380, damping: 30 }}
                   />
                 )}
               </button>
@@ -516,30 +457,18 @@ export default function LibraryPage() {
             transition={{ duration: 0.25 }}
             className="flex flex-col items-center justify-center py-24 text-center"
           >
-            {/* Ghost book icon */}
             <div className="mb-6 relative">
               <div className="w-20 h-20 rounded-2xl bg-neutral-800/50 border border-neutral-700/30 flex items-center justify-center">
                 {(() => {
                   const IconComp = TAB_META[activeTab].emptyIcon;
-                  return (
-                    <IconComp
-                      size={32}
-                      className="text-neutral-600"
-                      strokeWidth={1.5}
-                    />
-                  );
+                  return <IconComp size={32} className="text-neutral-600" strokeWidth={1.5} />;
                 })()}
               </div>
-              {/* Subtle floating particles */}
               <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-brand-accent/20 animate-pulse" />
               <div className="absolute -bottom-2 -left-2 w-2 h-2 rounded-full bg-brand-accent/15 animate-pulse delay-300" />
             </div>
-            <h3 className="font-serif text-lg text-neutral-300 mb-2">
-              {TAB_META[activeTab].emptyTitle}
-            </h3>
-            <p className="text-sm text-neutral-500 max-w-xs leading-relaxed">
-              {TAB_META[activeTab].emptySubtext}
-            </p>
+            <h3 className="font-serif text-lg text-neutral-300 mb-2">{TAB_META[activeTab].emptyTitle}</h3>
+            <p className="text-sm text-neutral-500 max-w-xs leading-relaxed">{TAB_META[activeTab].emptySubtext}</p>
           </motion.div>
         ) : (
           <motion.div
@@ -557,8 +486,7 @@ export default function LibraryPage() {
                   item={item}
                   onUpdateProgress={(id) => setProgressModal(id)}
                   onRemove={handleRemoveBook}
-                  review={reviewsByTitle.get(item.title) || null}
-                  onClick={activeTab === "Finished" ? () => setSelectedReviewBook({ item, review: reviewsByTitle.get(item.title) || null }) : undefined}
+                  onClick={activeTab === "Finished" ? () => setSelectedReviewBook(item) : undefined}
                 />
               ))}
             </AnimatePresence>
@@ -582,10 +510,11 @@ export default function LibraryPage() {
       {selectedReviewBook && (
         <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setSelectedReviewBook(null)}>
           <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl relative" onClick={(e) => e.stopPropagation()}>
-            {selectedReviewBook.review && (
-              <button 
+            {/* Edit button — only shown if the item has a review */}
+            {selectedReviewBook.reviewText && (
+              <button
                 onClick={() => {
-                  const bookId = selectedReviewBook.item.id;
+                  const bookId = selectedReviewBook.id;
                   setSelectedReviewBook(null);
                   router.push(`/post/review?book_id=${bookId}`);
                 }}
@@ -595,44 +524,37 @@ export default function LibraryPage() {
                 <PenLine size={20} />
               </button>
             )}
-            <button 
+            <button
               onClick={() => setSelectedReviewBook(null)}
               className="absolute top-4 right-4 p-2 bg-black/20 hover:bg-black/50 rounded-full text-white z-10 transition-colors cursor-pointer"
             >
               <X size={20} />
             </button>
-            
+
             <div className="flex flex-col md:flex-row h-full max-h-[90vh]">
-              {/* Cover Column */}
+              {/* Cover Column — always shows cover_url (item.thumbnail), never userImageUrl */}
               <div className="w-full md:w-1/2 bg-neutral-950 relative flex items-center justify-center aspect-[4/5] md:aspect-auto md:min-h-[400px]">
-                {selectedReviewBook.review?.customCoverUrl || selectedReviewBook.item.userImageUrl ? (
-                  <img
-                    src={selectedReviewBook.review?.customCoverUrl || selectedReviewBook.item.userImageUrl}
-                    alt={selectedReviewBook.item.title}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <BookCover 
-                    url={selectedReviewBook.review?.coverUrl || selectedReviewBook.item.thumbnail} 
-                    alt={selectedReviewBook.item.title} 
-                    className="h-full"
-                  />
-                )}
-                {selectedReviewBook.review && selectedReviewBook.review.ratings && (
+                <BookCover
+                  url={selectedReviewBook.thumbnail}
+                  alt={selectedReviewBook.title}
+                  className="h-full"
+                />
+                {/* Radar overlay if review sub-ratings exist */}
+                {selectedReviewBook.rPacing !== undefined && selectedReviewBook.rVibe !== undefined && (
                   <div className="absolute inset-0 bg-black/45 flex items-center justify-center p-4">
                     <div className="w-3/4 aspect-square opacity-95">
-                      <Radar 
+                      <Radar
                         data={{
-                          labels: selectedReviewBook.review.isFiction
-                            ? ["Pacing", "Characters", "Plot", "Prose", "Vibe"]
-                            : ["Pacing", "Persona", "Insight", "Prose", "Vibe"],
+                          labels: selectedReviewBook.bookType === "Non-Fiction"
+                            ? ["Pacing", "Persona", "Insight", "Prose", "Vibe"]
+                            : ["Pacing", "Characters", "Plot", "Prose", "Vibe"],
                           datasets: [{
                             data: [
-                              selectedReviewBook.review.ratings.pacing,
-                              selectedReviewBook.review.ratings.metricTwo,
-                              selectedReviewBook.review.ratings.metricThree,
-                              selectedReviewBook.review.ratings.prose,
-                              selectedReviewBook.review.ratings.vibe,
+                              selectedReviewBook.rPacing ?? 0,
+                              selectedReviewBook.rCharPersona ?? 0,
+                              selectedReviewBook.rPlotInsight ?? 0,
+                              selectedReviewBook.rProse ?? 0,
+                              selectedReviewBook.rVibe ?? 0,
                             ],
                             backgroundColor: "rgba(128, 0, 0, 0.45)",
                             borderColor: "rgba(255, 255, 255, 0.85)",
@@ -641,8 +563,8 @@ export default function LibraryPage() {
                             pointBorderColor: "#800000",
                             pointRadius: 3,
                           }],
-                        }} 
-                        options={modalRadarOptions} 
+                        }}
+                        options={modalRadarOptions}
                       />
                     </div>
                   </div>
@@ -651,22 +573,21 @@ export default function LibraryPage() {
 
               {/* Text/Content Column */}
               <div className="p-6 md:p-8 flex-1 flex flex-col min-w-0 overflow-y-auto max-h-[50vh] md:max-h-[90vh] custom-scrollbar">
-                {/* Book Details */}
                 <div className="mb-4">
                   <h2 className="font-serif text-2xl font-bold text-white mb-0.5 leading-snug">
-                    {selectedReviewBook.item.title}
+                    {selectedReviewBook.title}
                   </h2>
                   <p className="text-brand-accent text-sm font-medium mb-3">
-                    by {selectedReviewBook.item.author}
+                    by {selectedReviewBook.author}
                   </p>
                   {/* Status Selector */}
                   <div className="flex gap-1.5 flex-wrap">
                     {(["TBR", "Reading", "Finished", "DNF"] as LibraryStatus[]).map((s) => (
                       <button
                         key={s}
-                        onClick={() => handleChangeStatus(selectedReviewBook.item.id, s)}
+                        onClick={() => handleChangeStatus(selectedReviewBook.id, s)}
                         className={`px-3 py-1 rounded-full text-[11px] font-semibold border transition-all ${
-                          selectedReviewBook.item.status === s
+                          selectedReviewBook.status === s
                             ? "bg-brand-accent border-brand-accent text-white"
                             : "bg-transparent border-neutral-700 text-neutral-400 hover:border-neutral-500 hover:text-neutral-200"
                         }`}
@@ -677,35 +598,31 @@ export default function LibraryPage() {
                   </div>
                 </div>
 
-                {selectedReviewBook.review ? (
+                {selectedReviewBook.reviewText ? (
                   <>
-                    {/* Rating */}
-                    {selectedReviewBook.review.generalRating && (
+                    {/* Star Rating */}
+                    {selectedReviewBook.rating && (
                       <div className="flex items-center gap-0.5 mb-4">
                         {[1, 2, 3, 4, 5].map((s) => (
                           <Star
                             key={s}
                             size={14}
-                            fill={s <= selectedReviewBook.review!.generalRating! ? "currentColor" : "none"}
-                            className={s <= selectedReviewBook.review!.generalRating! ? "text-brand-accent" : "text-neutral-700"}
+                            fill={s <= selectedReviewBook.rating! ? "currentColor" : "none"}
+                            className={s <= selectedReviewBook.rating! ? "text-brand-accent" : "text-neutral-700"}
                           />
                         ))}
                       </div>
                     )}
-
-                    {/* Divider */}
                     <div className="border-t border-neutral-800 my-2" />
-
-                    {/* Quote (if exists) */}
-                    {(selectedReviewBook.review.overlayQuote || (selectedReviewBook.review as any).favoriteQuote || (selectedReviewBook.review as any).favorite_quote) && (
+                    {/* Favorite Quote */}
+                    {selectedReviewBook.favoriteQuote && (
                       <div className="border-l-[3px] border-brand-accent pl-3 my-4 italic text-sm text-neutral-300">
-                        "{selectedReviewBook.review.overlayQuote || (selectedReviewBook.review as any).favoriteQuote || (selectedReviewBook.review as any).favorite_quote}"
+                        "{selectedReviewBook.favoriteQuote}"
                       </div>
                     )}
-
                     {/* Essay Content */}
                     <div className="text-sm text-neutral-300 leading-relaxed prose prose-invert prose-sm max-w-none flex-grow">
-                      <div dangerouslySetInnerHTML={{ __html: selectedReviewBook.review.content }} />
+                      <div dangerouslySetInnerHTML={{ __html: selectedReviewBook.reviewText }} />
                     </div>
                   </>
                 ) : (
@@ -717,9 +634,9 @@ export default function LibraryPage() {
                     </p>
                     <button
                       onClick={() => {
-                        const title = selectedReviewBook.item.title;
-                        const author = selectedReviewBook.item.author;
-                        const coverUrl = selectedReviewBook.item.thumbnail || "";
+                        const title = selectedReviewBook.title;
+                        const author = selectedReviewBook.author;
+                        const coverUrl = selectedReviewBook.thumbnail || "";
                         const params = new URLSearchParams({ title, author, cover: coverUrl });
                         router.push(`/post/review?${params.toString()}`);
                         setSelectedReviewBook(null);

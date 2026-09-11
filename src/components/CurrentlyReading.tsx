@@ -5,7 +5,15 @@ import { useReviews } from "@/lib/ReviewContext";
 
 export function CurrentlyReading() {
   const { library, updateLibraryProgress } = useReviews();
-  const readingItems = library.filter(item => item.status === "Reading");
+  // Show the most recently added reading book
+  const readingItems = library
+    .filter(item => item.status === "Reading")
+    .sort((a, b) => {
+      if (!a.addedAt && !b.addedAt) return 0;
+      if (!a.addedAt) return 1;
+      if (!b.addedAt) return -1;
+      return new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime();
+    });
   const book = readingItems[0];
 
   if (!book) {

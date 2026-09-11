@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useReviews } from "@/lib/ReviewContext";
 import { MediaUploader } from "@/components/MediaUploader";
+import { supabase } from "@/utils/supabaseClient";
 
 type DrawLine = {
   points: { x: number; y: number }[];
@@ -35,8 +36,10 @@ type ToolMode = "select" | "text" | "draw" | null;
 
 export default function StoryEditorPage() {
   const router = useRouter();
-  const { addStory } = useReviews();
+  const { session, refreshFeed } = useReviews();
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
+  const [isSharing, setIsSharing] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
 
   // Canvas Refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -222,17 +225,63 @@ export default function StoryEditorPage() {
     setTool("select");
   };
 
-  const shareToStory = () => {
+  const shareToStory = async () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const dataUrl = canvas.toDataURL("image/png");
-    addStory({
-      id: Math.random().toString(36),
-      imageUrl: dataUrl,
-      timestamp: new Date().toISOString(),
-      author: "Me",
-    });
-    router.push("/");
+
+    if (!session?.user?.id) {
+      setShareError("You must be logged in to share a story.");
+      return;
+    }
+
+    setIsSharing(true);
+    setShareError(null);
+
+    try {
+      // Convert canvas to blob for upload
+      const dataUrl = canvas.toDataURL("image/png");
+      const blob = await (await fetch(dataUrl)).blob();
+      const fileName = `${session.user.id}/${Date.now()}-story.png`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("post_images")
+        .upload(fileName, blob, { contentType: "image/png" });
+
+      if (uploadError) {
+        console.error("Story upload error:", uploadError.message);
+        setShareError("Upload failed. Please try again.");
+        setIsSharing(false);
+        return;
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("post_images")
+        .getPublicUrl(fileName);
+
+      // expires_at = now + 24 hours
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+      const { error: insertError } = await supabase.from("stories").insert([{
+        user_id: session.user.id,
+        image_url: publicUrl,
+        caption: null,
+        expires_at: expiresAt,
+      }]);
+
+      if (insertError) {
+        console.error("Story insert error:", insertError.message);
+        setShareError("Failed to save story. Please try again.");
+        setIsSharing(false);
+        return;
+      }
+
+      refreshFeed();
+      router.push("/");
+    } catch (err) {
+      console.error("Unexpected story share error:", err);
+      setShareError("Something went wrong. Please try again.");
+      setIsSharing(false);
+    }
   };
 
   return (
@@ -255,12 +304,18 @@ export default function StoryEditorPage() {
           </button>
           <div className="relative">
             <button 
-              onClick={() => setTool("text")}
+              onClick={() => {
+                setTool("text");
+                setTextClickPos({ x: canvasSize.w / 2, y: canvasSize.h / 2 });
+                setNewText("");
+                setShowTextInput(true);
+                setTimeout(() => textInputRef.current?.focus(), 100);
+              }}
               className={`p-2.5 rounded-full transition-all ${tool === "text" ? "bg-brand-accent text-white scale-110 shadow-lg" : "bg-neutral-900/50 text-white hover:bg-neutral-800"}`}
             >
               <Type size={20} />
             </button>
-            {tool === "text" && (
+            {tool === "text" && !showTextInput && (
               <div className="absolute top-full mt-4 right-0 bg-neutral-900 rounded-2xl py-3 px-6 border border-neutral-700 shadow-2xl min-w-[160px] flex items-center justify-between gap-3">
                 <span className="text-[10px] uppercase tracking-wider text-neutral-500 font-bold">Text Color</span>
                 <label className="relative w-8 h-8 rounded-full cursor-pointer ring-2 ring-neutral-600 hover:ring-neutral-400 transition-all overflow-hidden" style={{ backgroundColor: textColor }}>
@@ -371,15 +426,29 @@ export default function StoryEditorPage() {
 
       {/* --- Bottom Post Action --- */}
       {imageDataUrl && (
-        <div className="absolute bottom-10 right-10 z-50">
+        <div className="absolute bottom-10 right-10 z-50 flex flex-col items-end gap-2">
+          {shareError && (
+            <p className="text-xs text-red-400 bg-black/70 px-3 py-1.5 rounded-lg max-w-[200px] text-right">
+              {shareError}
+            </p>
+          )}
           <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
+            whileHover={{ scale: isSharing ? 1 : 1.05 }}
+            whileTap={{ scale: isSharing ? 1 : 0.95 }}
             onClick={shareToStory}
-            className="group flex items-center gap-3 bg-white text-black pl-5 pr-2 py-2 rounded-full font-bold shadow-2xl shadow-white/20 hover:bg-brand-accent hover:text-white transition-all"
+            disabled={isSharing}
+            className={`group flex items-center gap-3 pl-5 pr-2 py-2 rounded-full font-bold shadow-2xl transition-all ${
+              isSharing
+                ? "bg-neutral-600 text-neutral-400 cursor-not-allowed shadow-none"
+                : "bg-white text-black shadow-white/20 hover:bg-brand-accent hover:text-white"
+            }`}
           >
-            Share to Story
-            <div className="p-2 bg-black rounded-full text-white group-hover:bg-white group-hover:text-brand-accent transition-colors">
+            {isSharing ? "Sharing..." : "Share to Story"}
+            <div className={`p-2 rounded-full transition-colors ${
+              isSharing
+                ? "bg-neutral-500 text-neutral-400"
+                : "bg-black text-white group-hover:bg-white group-hover:text-brand-accent"
+            }`}>
               <Check size={20} />
             </div>
           </motion.button>

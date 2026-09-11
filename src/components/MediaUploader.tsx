@@ -6,10 +6,11 @@ import { motion, AnimatePresence } from "framer-motion";
 
 type MediaUploaderProps = {
   onImageSelect: (dataUrl: string) => void;
+  onFileSelect?: (file: File) => void; // Exposes the raw File for Storage uploads
   aspectHint?: string; // e.g. "4:5" — displayed to guide the user
 };
 
-export function MediaUploader({ onImageSelect, aspectHint }: MediaUploaderProps) {
+export function MediaUploader({ onImageSelect, onFileSelect, aspectHint }: MediaUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -17,6 +18,8 @@ export function MediaUploader({ onImageSelect, aspectHint }: MediaUploaderProps)
   const processFile = useCallback(
     (file: File) => {
       if (!file.type.startsWith("image/")) return;
+      // Expose the raw File for callers that need to upload to Storage
+      onFileSelect?.(file);
       const reader = new FileReader();
       reader.onload = (e) => {
         const result = e.target?.result as string;
@@ -24,7 +27,7 @@ export function MediaUploader({ onImageSelect, aspectHint }: MediaUploaderProps)
       };
       reader.readAsDataURL(file);
     },
-    [onImageSelect]
+    [onImageSelect, onFileSelect]
   );
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -199,7 +199,7 @@ export function SettingsModal() {
   const [link, setLink] = useState(userProfile.personalLink);
   const [goalTarget, setGoalTarget] = useState(readingChallenge.target);
   const [avatarPreview, setAvatarPreview] = useState<string | undefined>(userProfile.avatarUrl);
-  const [currentlyReading, setCurrentlyReading] = useState(userProfile.currentlyReadingFav);
+
   const [allTimeFav, setAllTimeFav] = useState(userProfile.allTimeFav);
   const [isPublic, setIsPublic] = useState(userProfile.isPublic ?? true);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -217,7 +217,7 @@ export function SettingsModal() {
       setLink(userProfile.personalLink);
       setGoalTarget(readingChallenge.target);
       setAvatarPreview(userProfile.avatarUrl);
-      setCurrentlyReading(userProfile.currentlyReadingFav);
+
       setAllTimeFav(userProfile.allTimeFav);
       setIsPublic(userProfile.isPublic ?? true);
       setErrorMessage("");
@@ -250,7 +250,7 @@ export function SettingsModal() {
             fav_genres: formattedGenres.length > 0 ? formattedGenres : null,
             personal_link: link,
             avatar_url: avatarPreview,
-            curr_reading_info: currentlyReading ?? null,
+
             all_time_fav_book: allTimeFav ?? null,
             yearly_chall_goal: goalTarget,
             is_public: isPublic,
@@ -272,7 +272,7 @@ export function SettingsModal() {
         favGenres: formattedGenres.length > 0 ? formattedGenres : undefined,
         personalLink: link,
         avatarUrl: avatarPreview,
-        currentlyReadingFav: currentlyReading,
+
         allTimeFav,
         isPublic,
       });
@@ -418,15 +418,6 @@ export function SettingsModal() {
 
             {/* Divider */}
             <div className="border-t border-neutral-800 pt-2" />
-
-            {/* Currently Reading */}
-            <BookSearchField
-              label="Currently Reading"
-              icon={BookOpen}
-              value={currentlyReading}
-              onSelect={setCurrentlyReading}
-              onClear={() => setCurrentlyReading(undefined)}
-            />
 
             {/* All-Time Favourite */}
             <BookSearchField

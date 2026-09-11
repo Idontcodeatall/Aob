@@ -1,4 +1,4 @@
-import { Post, LibraryItem } from "@/lib/ReviewContext";
+import { LibraryItem } from "@/lib/ReviewContext";
 
 export type GenreFrequency = { genre: string; count: number; percentage: number };
 export type AggregateRadar = { pacing: number; metricTwo: number; metricThree: number; prose: number; vibe: number };

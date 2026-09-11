@@ -12,8 +12,25 @@ import {
   Legend,
   ArcElement,
 } from "chart.js";
-import { useReviews, Post, LibraryItem } from "@/lib/ReviewContext";
+import { useReviews, FeedPost, LibraryItem } from "@/lib/ReviewContext";
 import { BookCover } from "@/components/BookCover";
+
+export /* ─── Helper: relative time from ISO string ─── */
+function timeAgo(isoString: string | null | undefined): string {
+  if (!isoString) return "";
+  const d = new Date(isoString);
+  if (isNaN(d.getTime())) return "";
+  const diff = Date.now() - d.getTime();
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${days}d ago`;
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
 import {
   getGenreFrequency,
   getAggregateRadar,
@@ -61,8 +78,17 @@ export default function ProfilePage() {
 
   const [isMounted, setIsMounted] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+  const [selectedPost, setSelectedPost] = useState<FeedPost | null>(null);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
+
+  // DEBUG LOGGING REQUESTED BY USER
+  console.log("--- PROFILE PAGE RENDER ---");
+  console.log("Session:", session);
+  console.log("UserProfile:", userProfile);
+  console.log("AuthLoading:", authLoading);
+  console.log("IsMounted:", isMounted);
+  console.log("Library Length:", library?.length);
+  console.log("Posts Length:", posts?.length);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -70,12 +96,24 @@ export default function ProfilePage() {
   const [authError, setAuthError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const isBookFinished = useMemo(() => {
-    if (!selectedPost) return false;
-    return library.some(
-      (item) => item.status === "Finished" && item.title === selectedPost.bookTitle
-    );
-  }, [selectedPost, library]);
+  // Initialize variables that we'll calculate safely
+  let isBookFinished = false;
+  let finishedBooks: LibraryItem[] = [];
+  let reviewsWithRatings: LibraryItem[] = [];
+  let userPosts: FeedPost[] = [];
+  
+  try {
+    isBookFinished = selectedPost 
+      ? library.some((item) => item.status === "Finished" && item.title === selectedPost.book_title)
+      : false;
+
+    finishedBooks = library.filter((b) => b.status === "Finished");
+    reviewsWithRatings = finishedBooks.filter(b => b.rPacing !== undefined || b.rCharPersona !== undefined || b.rPlotInsight !== undefined || b.rProse !== undefined || b.rVibe !== undefined);
+
+    userPosts = posts.filter((p) => session?.user?.id && p.user_id === session.user.id);
+  } catch (err) {
+    console.error("[ProfilePage] Safe calculation error:", err);
+  }
 
   useEffect(() => {
     setIsMounted(true);
@@ -159,14 +197,6 @@ export default function ProfilePage() {
       setIsSubmitting(false);
     }
   };
-
-  const finishedBooks = library.filter((b) => b.status === "Finished");
-  const reviewsWithRatings = finishedBooks.filter(b => b.rPacing !== undefined || b.rCharPersona !== undefined || b.rPlotInsight !== undefined || b.rProse !== undefined || b.rVibe !== undefined);
-
-  // All user posts for the grid (Visual + DeepReview)
-  const userPosts = posts.filter(
-    (p) => p.author === userProfile.displayName && (p.type === "Visual" || p.type === "DeepReview")
-  );
 
   const genreData = useMemo(() => getGenreFrequency(finishedBooks), [finishedBooks]);
   const aggregateRadar = useMemo(() => getAggregateRadar(reviewsWithRatings), [reviewsWithRatings]);
@@ -679,69 +709,32 @@ export default function ProfilePage() {
         {/* 3-Column Square Grid */}
         <div className="grid grid-cols-3 gap-1 md:gap-2">
           {userPosts.map((post) => {
-            const isDeepReview = post.type === "DeepReview" && post.ratings;
-            const tileImage = post.customCoverUrl || post.imageUrl || post.coverUrl;
-
-            // Mini radar for DeepReview hover
-            const labels = isDeepReview
-              ? (post.isFiction ? ["Pacing", "Characters", "Plot", "Prose", "Vibe"] : ["Pacing", "Persona", "Insight", "Prose", "Vibe"])
-              : [];
-            
-            const miniRadarData = isDeepReview ? {
-              labels,
-              datasets: [{
-                data: [
-                  post.ratings!.pacing, post.ratings!.metricTwo, post.ratings!.metricThree,
-                  post.ratings!.prose, post.ratings!.vibe,
-                ],
-                backgroundColor: "rgba(128, 0, 0, 0.7)",
-                borderColor: "#FFFFFF",
-                borderWidth: 1.5,
-                pointBackgroundColor: "#FFFFFF",
-                pointRadius: 0,
-              }],
-            } : null;
-
-            const miniOptions = {
-              scales: {
-                r: {
-                  min: 0, max: 5,
-                  ticks: { display: false },
-                  grid: { color: "rgba(255,255,255,0.15)" },
-                  angleLines: { color: "rgba(255,255,255,0.15)" },
-                  pointLabels: { display: false },
-                },
-              },
-              plugins: { legend: { display: false }, tooltip: { enabled: false } },
-              maintainAspectRatio: false,
-            };
-
+            const tileImage = post.image_url;
             return (
-              <div 
-                key={post.id} 
+              <div
+                key={post.id}
                 onClick={() => setSelectedPost(post)}
                 className="post-grid-item relative aspect-square bg-neutral-800 overflow-hidden cursor-pointer"
               >
                 {/* Background Image */}
                 {tileImage ? (
-                  <img 
-                    src={tileImage} 
-                    alt={`${post.bookTitle}`}
+                  <img
+                    src={tileImage}
+                    alt={`${post.book_title || "Post"}`}
                     className="post-grid-cover w-full h-full object-cover"
                     style={{ transition: "transform 0.5s ease" }}
                     referrerPolicy="no-referrer"
                   />
                 ) : (
-                  <div className="post-grid-cover w-full h-full bg-gradient-to-br from-neutral-800 to-neutral-900 flex items-center justify-center p-4 text-center"
-                    style={{ transition: "transform 0.5s ease" }}
-                  >
-                    <span className="font-serif font-bold text-neutral-600 text-sm md:text-base" style={{ opacity: 0.5 }}>
-                      {post.bookTitle}
-                    </span>
+                  <div className="post-grid-cover w-full h-full bg-gradient-to-br from-neutral-800 to-neutral-900 flex items-center justify-center p-4 text-center">
+                    <div 
+                      className="text-white text-[10px] md:text-sm font-serif line-clamp-4 leading-relaxed [&>p]:mb-0"
+                      dangerouslySetInnerHTML={{ __html: post.caption || "" }}
+                    />
                   </div>
                 )}
 
-              {/* Hover Overlay — type-aware */}
+                {/* Hover Overlay */}
                 <div 
                   className="post-grid-overlay absolute inset-0 flex flex-col items-center justify-center p-2 md:p-4"
                   style={{ 
@@ -751,38 +744,10 @@ export default function ProfilePage() {
                     zIndex: 10,
                   }}
                 >
-                  {isDeepReview && miniRadarData ? (
-                    /* Deep Review → Radar Chart + Stars */
-                    <>
-                      <div className="flex items-center gap-0.5 mb-2 md:mb-4">
-                        {[1, 2, 3, 4, 5].map((s) => (
-                          <Star 
-                            key={s} 
-                            size={14} 
-                            fill={s <= (post.generalRating || 0) ? "currentColor" : "none"} 
-                            className={s <= (post.generalRating || 0) ? "text-brand-accent" : "text-neutral-600"} 
-                          />
-                        ))}
-                      </div>
-                      <div className="w-16 h-16 md:w-24 md:h-24">
-                        <Radar data={miniRadarData} options={miniOptions} />
-                      </div>
-                    </>
-                  ) : (
-                    /* Visual Post → Like/Comment counts */
-                    <>
-                      <div className="flex items-center gap-4 text-white/90">
-                        <div className="flex items-center gap-1.5">
-                          <Heart size={16} fill="currentColor" className="text-white" />
-                          <span className="text-sm font-semibold">{post.likesCount ?? 0}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <MessageCircle size={16} className="text-white" />
-                          <span className="text-sm font-semibold">{post.commentsCount ?? 0}</span>
-                        </div>
-                      </div>
-                    </>
-                  )}
+                  <div className="flex gap-4 text-white text-xs md:text-sm font-semibold tracking-wide">
+                    <div className="flex items-center gap-1.5"><Heart size={16} fill="white" /> {post.likes_count || 0}</div>
+                    <div className="flex items-center gap-1.5"><MessageCircle size={16} fill="white" /> {post.comments_count || 0}</div>
+                  </div>
                 </div>
               </div>
             );
@@ -804,214 +769,57 @@ export default function ProfilePage() {
             <div className="flex flex-col md:flex-row h-full max-h-[90vh]">
               {/* Media Column */}
               <div className="w-full md:w-1/2 bg-neutral-950 relative flex items-center justify-center aspect-[4/5] md:aspect-auto md:min-h-[400px]">
-                {selectedPost.customCoverUrl || selectedPost.imageUrl ? (
+                {selectedPost.image_url ? (
                   <img
-                    src={selectedPost.customCoverUrl || selectedPost.imageUrl}
-                    alt={selectedPost.bookTitle}
+                    src={selectedPost.image_url}
+                    alt={selectedPost.book_title || "Post media"}
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="w-full h-full relative">
-                    <BookCover 
-                      url={selectedPost.coverUrl} 
-                      alt={`${selectedPost.bookTitle} by ${selectedPost.bookAuthor}`} 
-                      className="h-full"
+                  <div className="w-full h-full bg-gradient-to-br from-neutral-800 to-neutral-900 flex items-center justify-center p-8 text-center">
+                    <div 
+                      className="text-white text-lg font-serif line-clamp-6 leading-relaxed"
+                      dangerouslySetInnerHTML={{ __html: selectedPost.caption || "" }}
                     />
-                    {selectedPost.type === "DeepReview" && selectedPost.ratings && (
-                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center p-4">
-                        <div className="w-3/4 aspect-square opacity-90">
-                          <Radar 
-                            data={{
-                              labels: selectedPost.isFiction
-                                ? ["Pacing", "Characters", "Plot", "Prose", "Vibe"]
-                                : ["Pacing", "Persona", "Insight", "Prose", "Vibe"],
-                              datasets: [{
-                                data: [
-                                  selectedPost.ratings.pacing, selectedPost.ratings.metricTwo, selectedPost.ratings.metricThree,
-                                  selectedPost.ratings.prose, selectedPost.ratings.vibe,
-                                ],
-                                backgroundColor: "rgba(128, 0, 0, 0.45)",
-                                borderColor: "rgba(255, 255, 255, 0.85)",
-                                borderWidth: 2,
-                                pointBackgroundColor: "#FFFFFF",
-                                pointBorderColor: "#800000",
-                                pointRadius: 3,
-                              }],
-                            }} 
-                            options={modalRadarOptions} 
-                          />
-                        </div>
-                      </div>
-                    )}
                   </div>
                 )}
               </div>
 
-              {/* Text/Content Column */}
-              <div className="p-6 md:p-8 flex-1 flex flex-col min-w-0 overflow-y-auto max-h-[50vh] md:max-h-[90vh] custom-scrollbar">
-                {/* Header */}
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-brand-accent/80 to-red-900 flex items-center justify-center text-xs font-serif text-white font-bold">
-                    {selectedPost.authorInitials}
+              {/* Content Column */}
+              <div className="w-full md:w-1/2 p-6 md:p-8 flex flex-col bg-neutral-900">
+                
+                {/* Author Info */}
+                <div className="flex items-center gap-3 mb-6 shrink-0">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-brand-accent to-neutral-700 flex items-center justify-center text-white font-serif font-bold text-sm overflow-hidden">
+                    {selectedPost.profiles?.avatar_url ? (
+                      <img src={selectedPost.profiles.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      selectedPost.profiles?.username?.[0]?.toUpperCase() || "U"
+                    )}
                   </div>
                   <div>
-                    <h3 className="font-serif font-semibold text-sm text-brand-text leading-tight">{selectedPost.author}</h3>
-                    <p className="text-[10px] text-neutral-500">{selectedPost.timeAgo}</p>
+                    <h3 className="font-serif font-semibold text-sm text-brand-text leading-tight">{selectedPost.profiles?.username || "Unknown"}</h3>
+                    <p className="text-[10px] text-neutral-500">{timeAgo(selectedPost.created_at)}</p>
                   </div>
                 </div>
 
                 {/* Book Details */}
-                <div className="mb-4">
-                  <h2 className="font-serif text-xl font-bold text-white mb-0.5 leading-snug">
-                    {selectedPost.bookTitle}
-                  </h2>
-                  <p className="text-brand-accent text-sm font-medium">
-                    by {selectedPost.bookAuthor}
-                  </p>
-                </div>
-
-                {/* Rating */}
-                {selectedPost.generalRating && (
-                  <div className="flex items-center gap-0.5 mb-4">
-                    {[1, 2, 3, 4, 5].map((s) => (
-                      <Star
-                        key={s}
-                        size={14}
-                        fill={s <= selectedPost.generalRating! ? "currentColor" : "none"}
-                        className={s <= selectedPost.generalRating! ? "text-brand-accent" : "text-neutral-700"}
-                      />
-                    ))}
-                  </div>
-                )}
-
-                {/* Prominent Minimalist Add to Library Button */}
-                {selectedPost.bookTitle && (
-                  <button
-                    onClick={() => {
-                      if (!isBookFinished) {
-                        addToLibrary({
-                          id: `profile-add-${Date.now()}`,
-                          title: selectedPost.bookTitle,
-                          author: selectedPost.bookAuthor,
-                          thumbnail: selectedPost.coverUrl || "",
-                          status: "Finished",
-                          totalPages: 300,
-                          pagesRead: 300,
-                        });
-                      }
-                    }}
-                    disabled={isBookFinished}
-                    className={`w-full mb-4 py-2.5 px-4 rounded-xl text-xs font-semibold tracking-wide border transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                      isBookFinished
-                        ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400 cursor-default"
-                        : "border-brand-accent bg-transparent text-brand-text hover:bg-brand-accent hover:text-white"
-                    }`}
-                  >
-                    {isBookFinished ? (
-                      <>
-                        <span>✓ In Finished Books</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>+ Move to Finished</span>
-                      </>
-                    )}
-                  </button>
-                )}
-
-                {/* Divider */}
-                <div className="border-t border-neutral-800 my-2" />
-
-                {/* Quote (if visual or overlay quote exists) */}
-                {(selectedPost.overlayQuote || (selectedPost as any).favoriteQuote || (selectedPost as any).favorite_quote) && (
-                  <div className="border-l-[3px] border-brand-accent pl-3 my-4 italic text-sm text-neutral-300">
-                    "{selectedPost.overlayQuote || (selectedPost as any).favoriteQuote || (selectedPost as any).favorite_quote}"
+                {selectedPost.book_title && (
+                  <div className="mb-4">
+                    <h2 className="font-serif text-xl font-bold text-white mb-0.5 leading-snug">
+                      {selectedPost.book_title}
+                    </h2>
+                    <p className="text-brand-accent text-sm font-medium">
+                      by {selectedPost.book_author}
+                    </p>
                   </div>
                 )}
 
                 {/* Essay / Caption Content */}
-                <div className="text-sm text-neutral-300 leading-relaxed prose prose-invert prose-sm max-w-none flex-grow">
-                  <div dangerouslySetInnerHTML={{ __html: selectedPost.content }} />
-                </div>
-
-                {/* Add to Library Action */}
-                {selectedPost.bookTitle && (
-                  <div className="mt-6 pt-4 border-t border-neutral-800 shrink-0">
-                    <span className="block text-[10px] font-semibold text-neutral-500 uppercase tracking-widest mb-2.5">
-                      Add to Library
-                    </span>
-                    <div className="grid grid-cols-4 gap-2">
-                      <button
-                        onClick={() => {
-                          addToLibrary({
-                            id: `profile-add-${Date.now()}`,
-                            title: selectedPost.bookTitle,
-                            author: selectedPost.bookAuthor,
-                            thumbnail: selectedPost.coverUrl || "",
-                            status: "TBR",
-                            totalPages: 300,
-                            pagesRead: 0,
-                          });
-                          alert(`"${selectedPost.bookTitle}" has been added to your TBR shelf!`);
-                        }}
-                        className="py-2 bg-neutral-800 hover:bg-neutral-700 rounded-lg text-xs font-semibold text-brand-text transition-colors cursor-pointer text-center"
-                      >
-                        TBR
-                      </button>
-                      <button
-                        onClick={() => {
-                          addToLibrary({
-                            id: `profile-add-${Date.now()}`,
-                            title: selectedPost.bookTitle,
-                            author: selectedPost.bookAuthor,
-                            thumbnail: selectedPost.coverUrl || "",
-                            status: "Reading",
-                            totalPages: 300,
-                            pagesRead: 0,
-                          });
-                          alert(`"${selectedPost.bookTitle}" has been added to Currently Reading!`);
-                        }}
-                        className="py-2 bg-neutral-800 hover:bg-neutral-700 rounded-lg text-xs font-semibold text-brand-text transition-colors cursor-pointer text-center"
-                      >
-                        Reading
-                      </button>
-                      <button
-                        onClick={() => {
-                          addToLibrary({
-                            id: `profile-add-${Date.now()}`,
-                            title: selectedPost.bookTitle,
-                            author: selectedPost.bookAuthor,
-                            thumbnail: selectedPost.coverUrl || "",
-                            status: "Finished",
-                            totalPages: 300,
-                            pagesRead: 300,
-                          });
-                          alert(`"${selectedPost.bookTitle}" has been added to Finished!`);
-                        }}
-                        className="py-2 bg-neutral-800 hover:bg-neutral-700 rounded-lg text-xs font-semibold text-brand-text transition-colors cursor-pointer text-center"
-                      >
-                        Finished
-                      </button>
-                      <button
-                        onClick={() => {
-                          addToLibrary({
-                            id: `profile-add-${Date.now()}`,
-                            title: selectedPost.bookTitle,
-                            author: selectedPost.bookAuthor,
-                            thumbnail: selectedPost.coverUrl || "",
-                            status: "DNF",
-                            totalPages: 300,
-                            pagesRead: 0,
-                          });
-                          alert(`"${selectedPost.bookTitle}" has been marked as DNF!`);
-                        }}
-                        className="py-2 bg-neutral-800 hover:bg-neutral-700 rounded-lg text-xs font-semibold text-red-400 transition-colors cursor-pointer text-center"
-                      >
-                        DNF
-                      </button>
-                    </div>
-                  </div>
-                )}
+                <div 
+                  className="text-sm text-neutral-300 leading-relaxed prose prose-invert prose-sm max-w-none flex-grow mt-4"
+                  dangerouslySetInnerHTML={{ __html: selectedPost.caption || "" }}
+                />
               </div>
             </div>
           </div>
